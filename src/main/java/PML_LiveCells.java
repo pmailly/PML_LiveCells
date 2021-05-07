@@ -15,6 +15,11 @@ import static PMLTools.PML_Tools.driftCorrection;
 import static PMLTools.PML_Tools.findDots;
 import static PMLTools.PML_Tools.findImageCalib;
 import static PMLTools.PML_Tools.findImages;
+import static PMLTools.PML_Tools.getPMLIntensity;
+import static PMLTools.PML_Tools.getPMLVolume;
+import static PMLTools.PML_Tools.pmlDiffus;
+import static PMLTools.PML_Tools.saveDiffusImage;
+import static PMLTools.PML_Tools.saveImageObjects;
 import ij.*;
 import ij.gui.Roi;
 import ij.plugin.PlugIn;
@@ -49,6 +54,7 @@ import loci.formats.FormatException;
 import loci.plugins.BF;
 import loci.plugins.in.ImporterOptions;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 
 
 public class PML_LiveCells implements PlugIn {
@@ -123,12 +129,12 @@ public class PML_LiveCells implements PlugIn {
             ImageProcessorReader reader = new ImageProcessorReader();
             reader.setMetadataStore(meta);
             int series = 0;
-            int imageNum = 0, nucIndex = 0;
+            int nucIndex = 0;
             for (String f : imageFiles) {
                 String rootName = FilenameUtils.getBaseName(f);
                 reader.setId(f);
                 reader.setSeries(series);
-                if (imageNum == 0) {
+                if (nucIndex == 0) {
                     cal = findImageCalib(meta);
                 }
                 
@@ -145,16 +151,7 @@ public class PML_LiveCells implements PlugIn {
                         return;
                     }
                 }
-                // Write headers results for results file
-                if (imageNum == 0) {
-                    FileWriter fileResults = new FileWriter(outDirResults + rootName + "_Nucleus_" + nucIndex +"_results.xls", false);
-                    outPutResults = new BufferedWriter(fileResults);
-                    outPutResults.write("Time\tNucleus Volume\tPML dot number\tNucleus Diffuse IntDensity\tPML Mean dot IntDensity\tPML dot SD IntDensity"
-                            + "\tPML dot Min IntDensity\tPML dot Max IntDensity\tPML dot Mean Volume\tPML dot SD Volume\tPML Min Vol\tPML Max Vol\tPML Sum Vol"
-                            + "\tPML dot Mean center-center distance\tPML dot SD center-center distance\n");
-                    outPutResults.flush();
-                }
-                imageNum++;
+                
                 // find rois
                 RoiManager rm = new RoiManager(false);
                 rm.runCommand("Open", roi_file);
@@ -163,7 +160,14 @@ public class PML_LiveCells implements PlugIn {
                 // For each roi open cropped image
                 for (Roi roi : rois) {
                     nucIndex++;
-
+                    
+                    // Write headers results for results file{
+                    FileWriter fileResults = new FileWriter(outDirResults + rootName + "_Nucleus_" + nucIndex +"_results.xls", false);
+                    outPutResults = new BufferedWriter(fileResults);
+                    outPutResults.write("Time\tNucleus Volume\tPML dot number\tNucleus Diffuse IntDensity\tPML Mean dots IntDensity\tPML dots Mean Volume"
+                            + "\tPML dots STD IntDensity\tPML dot STD Volume\tPML Sum Vol\tPML dot Mean center-center distance\tPML dot SD center-center distance\n");
+                    outPutResults.flush();
+                    
                     Rectangle rectRoi = roi.getBounds();
                     ImporterOptions options = new ImporterOptions();
                     options.setId(f);
@@ -175,11 +179,13 @@ public class PML_LiveCells implements PlugIn {
                     options.setQuiet(true);
                     
                     Objects3DPopulation nucPop = new Objects3DPopulation();
-                    ArrayList<Objects3DPopulation> plmPop = new ArrayList<>();
+                    ArrayList<Objects3DPopulation> plmPopList = new ArrayList<>();
                     
                     // Stack registration
                     ImagePlus imgNuc = BF.openImagePlus(options)[0];
                     ArrayList<double[]> matReg = stackRegister(imgNuc);
+                    ArrayList<Double> pmlDiffusInt = new ArrayList<>();
+                    ArrayList<DescriptiveStatistics> pmlInt = new ArrayList<>();
                     closeImages(imgNuc);
                     // for each time find nucleus, plml
                     for (int t = 0; t < reader.getSizeT(); t++) {
@@ -190,12 +196,36 @@ public class PML_LiveCells implements PlugIn {
                         // apply image drift correction
                         driftCorrection(imgNuc, matReg);
                         // find nuc object
-                        nucPop.addObject(PML_Tools.findnucleus(imgNuc));
+                        Object3D nucObj = PML_Tools.findnucleus(imgNuc);
+                        nucPop.addObject(nucObj);
                         // Open pml channel
                         ImagePlus imgPML = BF.openImagePlus(options)[1];
                         // apply image drift correction
                         driftCorrection(imgPML, matReg);
-                        plmPop.add(findDots(imgPML, "fileName"));
+                        Objects3DPopulation pmlPop = findDots(imgPML);
+                        plmPopList.add(pmlPop);
+                        pmlDiffusInt.add(pmlDiffus(pmlPop, nucObj, imgPML));
+                        pmlInt.add(getPMLIntensity(pmlPop, imgPML));
+                        // Save images objects
+                        saveImageObjects(imgPML, nucObj, pmlPop, outDirResults+rootName+"nuc_"+nucIndex+"_Objects.tif");
+                        // Save diffus image
+                        saveDiffusImage(pmlPop, nucObj, imgPML, outDirResults+rootName+"nuc_"+nucIndex+"_Diffuse.tif");
+                    }
+                    
+                    // find parameters
+                    for (int i = 0; i < nucPop.getNbObjects(); i++) {
+                        Object3D nucObj = nucPop.getObject(i);
+                        double nucVol = nucObj.getVolumeUnit();
+                        Objects3DPopulation pmlPop = plmPopList.get(i);
+                        int pmlDots = pmlPop.getNbObjects();
+                        double pmlVolMean = getPMLVolume(pmlPop).getMean();
+                        double pmlVolStd = getPMLVolume(pmlPop).getStandardDeviation();
+                        double pmlVolTotal = getPMLVolume(pmlPop).getSum();
+                        double minDistCenterMean = pmlPop.distancesAllClosestCenter().getMean(); 
+                        double minDistCenterSD = pmlPop.distancesAllClosestCenter().getStdDev();
+                        outPutResults.write(i+"\t"+nucVol+"\t"+pmlPop.getNbObjects()+"\t"+pmlDiffusInt.get(i)+"\t"+pmlInt.get(i).getMean()+"\t"
+                                +pmlInt.get(i).getStandardDeviation()+"\t"+pmlVolMean+"\t"+pmlVolStd+"\t"+pmlVolTotal+"\t"+minDistCenterMean+"\t"+minDistCenterSD+"\n");
+                        outPutResults.flush();
                     }
                 }
             }
