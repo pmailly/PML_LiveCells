@@ -1,12 +1,5 @@
 package PML;
 
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-
-
 import ij.IJ;
 import ij.ImagePlus;
 import ij.io.FileSaver;
@@ -25,7 +18,6 @@ public class Transformer {
 
     private int width;
     private int height;
-    private int slice; // which time point
     
     /** \brief initialise */
     public Transformer()
@@ -44,11 +36,7 @@ public class Transformer {
         height = h;
     }
     
-    public void setSlice(int s)
-    {
-        slice = s;
-    }
-    
+
         /** \brief Fill matrix  of source points */
     public void setSource(double[][] mat)
     {
@@ -66,15 +54,18 @@ public class Transformer {
     {
         try 
         {
-            imp.setSlice(slice);
             Object turboReg = null;
-            ImagePlus source = new ImagePlus("StackRegSource", new ShortProcessor(
+            
+            for ( int z=1; z<=imp.getNSlices(); z++)
+            {
+                imp.setSlice(z);
+                ImagePlus source = new ImagePlus("StackRegSource", new ShortProcessor(
 					width, height, (short[])imp.getProcessor().getPixels(),
 					imp.getProcessor().getColorModel()));
-            final FileSaver sourceFile = new FileSaver(source);
-            final String sourcePathAndFileName = IJ.getDirectory("temp") + source.getTitle();
-            sourceFile.saveAsTiff(sourcePathAndFileName);
-            turboReg = IJ.runPlugIn("TurboReg_", "-transform"
+                final FileSaver sourceFile = new FileSaver(source);
+                final String sourcePathAndFileName = IJ.getDirectory("temp") + source.getTitle();
+                sourceFile.saveAsTiff(sourcePathAndFileName);
+                turboReg = IJ.runPlugIn("TurboReg_", "-transform"
 							+ " -file " + sourcePathAndFileName
 							+ " " + width
 							+ " " + height
@@ -93,15 +84,16 @@ public class Transformer {
 							+ " " + ((3 * height) / 4)
 							+ " -hideOutput"
 						);
-            if (turboReg == null) throw(new ClassNotFoundException());
+                if (turboReg == null) throw(new ClassNotFoundException());
 	
-            Method method = turboReg.getClass().getMethod("getTransformedImage",(Class[])null);
-            ImagePlus transformedSource =(ImagePlus) method.invoke(turboReg);
-            transformedSource.getStack().deleteLastSlice();
-            transformedSource.getProcessor().setMinAndMax(0.0, 65535.0);
-            final ImageConverter converter = new ImageConverter(transformedSource);
-            converter.convertToGray16();
-            imp.setProcessor(null, transformedSource.getProcessor());			 
+                Method method = turboReg.getClass().getMethod("getTransformedImage",(Class[])null);
+                ImagePlus transformedSource =(ImagePlus) method.invoke(turboReg);
+                transformedSource.getStack().deleteLastSlice();
+                transformedSource.getProcessor().setMinAndMax(0.0, 65535.0);
+                final ImageConverter converter = new ImageConverter(transformedSource);
+                converter.convertToGray16();
+                imp.setProcessor(null, transformedSource.getProcessor());
+            }
         }
         catch (Exception e)
         {

@@ -2,7 +2,6 @@ package PML;
 
 
 
-
 /*====================================================================	
 | Version: July 7, 2011
 \===================================================================*/
@@ -56,6 +55,7 @@ import ij.gui.GUI;
 import ij.gui.GenericDialog;
 import ij.io.FileSaver;
 import ij.plugin.PlugIn;
+import ij.plugin.ZProjector;
 import ij.process.Blitter;
 import ij.process.ByteProcessor;
 import ij.process.ColorProcessor;
@@ -94,19 +94,18 @@ public class StackReg_Plus	//SR 2019-09-30
 /*....................................................................
 	private variables
 ....................................................................*/
-private static final double TINY =
+private final double TINY =
 	(double)Float.intBitsToFloat((int)0x33FFFFFF);
 
-private static int transformType = 2;	//SR 2019-09-30: set default and remember transform type
+private int transformType = 2;	//SR 2019-09-30: set default and remember transform type
 
 protected ArrayList<Transformer> transformers;
 /*....................................................................
 	PlugIn methods
 ....................................................................*/
 /*------------------------------------------------------------------*/
-public void run (
-	final String arg
-) {
+public void run (final String arg) 
+{
 
 	Runtime.getRuntime().gc();
 	final ImagePlus imp = WindowManager.getCurrentImage();
@@ -118,13 +117,17 @@ public void run (
 		IJ.error("Unable to process either RGB or HSB stacks");
 		return;
 	}
-        ImagePlus dup = imp.duplicate();
-        runRegister(imp);
-        dup.show();
+        ImagePlus proj = ZProjector.run(imp,"avg all");
+;       proj.show();
+        runRegister(proj);
+        proj.changes=false;
+        proj.close();
         for ( int i = 0; i < transformers.size(); i++)
         {
             Transformer trans = transformers.get(i);
-            trans.doTransformation(dup);
+            IJ.run(imp, "Make Substack...", "slices=1-"+imp.getNSlices()+" frames="+(i+1));
+            ImagePlus cur = IJ.getImage();
+            trans.doTransformation(cur);
         }
 }
 
@@ -1894,7 +1897,6 @@ private ImagePlus registerSlice (
                                                 Transformer trans = new Transformer();
                                                 trans.setSize(width ,height);
                                                 trans.setSource(sourcePoints);
-                                                trans.setSlice(s);
                                                 transformers.add(trans);
 						
 						break;
@@ -2007,7 +2009,7 @@ class stackRegCredits
 /*....................................................................
 	private variables
 ....................................................................*/
-private static final long serialVersionUID = 1L;
+private final long serialVersionUID = 1L;
 
 /*....................................................................
 	Container methods
