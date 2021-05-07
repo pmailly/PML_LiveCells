@@ -164,6 +164,13 @@ public class PML_LiveCells implements PlugIn {
                         pmlInt.add(pml.getPMLIntensity(pmlPop, imgPML));
                         // Save images objects
                         pml.saveImageObjects(imgPML, nucObj, pmlPop, outDirResults+rootName+"nuc_"+nucIndex+"_Objects.tif");
+                        
+                        // Do Tracking
+                        double meanVol = pml.getPMLVolume(pmlPop).getMean();
+                        meanVol /= nucPop.getNbObjects();
+                        double meanRad = Math.pow(3/(4*Math.PI)*meanVol, 1.0/3.0);
+                        IJ.run(imgPML, "TrackMate", "use_gui=false " + "save_to=["+outDirResults+rootName+"nuc_"+nucIndex+"_trackmateSaved.xml]" + "export_to=["+outDirResults+rootName+"nuc_"+nucIndex+"_trackmateExport.xml]" + "display_results=true " + "radius="+meanRad+" " + "threshold=50.1 " + "subpixel=false " + "median=false " + "channel=1 " + "max_frame_gap=0" );
+             
                         // Save diffus image
                         pml.saveDiffusImage(pmlPop, nucObj, imgPML, outDirResults+rootName+"nuc_"+nucIndex+"_Diffuse.tif");
                     }
@@ -175,7 +182,7 @@ public class PML_LiveCells implements PlugIn {
                         Objects3DPopulation pmlPop = plmPopList.get(i);
                         int pmlDots = pmlPop.getNbObjects();
                         double pmlVolMean = pml.getPMLVolume(pmlPop).getMean();
-                        double pmlVolStd = pml.getPMLVolume(pmlPop).getStandardDeviation();
+                       double pmlVolStd = pml.getPMLVolume(pmlPop).getStandardDeviation();
                         double pmlVolTotal = pml.getPMLVolume(pmlPop).getSum();
                         double minDistCenterMean = pmlPop.distancesAllClosestCenter().getMean(); 
                         double minDistCenterSD = pmlPop.distancesAllClosestCenter().getStdDev();
@@ -183,7 +190,8 @@ public class PML_LiveCells implements PlugIn {
                                 +pmlInt.get(i).getStandardDeviation()+"\t"+pmlVolMean+"\t"+pmlVolStd+"\t"+pmlVolTotal+"\t"+minDistCenterMean+"\t"+minDistCenterSD+"\n");
                         outPutResults.flush();
                     }
-                }
+                    
+                    }
             }
             IJ.showStatus("Process done"); 
         } catch (DependencyException ex) {
