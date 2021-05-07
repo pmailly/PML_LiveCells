@@ -1,3 +1,5 @@
+package PMLTools;
+
 
 /*====================================================================	
 | Version: July 7, 2011
@@ -75,7 +77,8 @@ import java.awt.image.IndexColorModel;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-import ij.measure.ResultsTable;	//SR 2019-09-30
+//import ij.measure.ResultsTable;	//SR 2019-09-30
+import java.util.ArrayList;
 
 /*====================================================================
 |	StackReg_
@@ -94,6 +97,7 @@ private static final double TINY =
 
 private static int transformType = 2;	//SR 2019-09-30: set default and remember transform type
 
+protected ArrayList<Transformer> transformers;
 /*....................................................................
 	PlugIn methods
 ....................................................................*/
@@ -112,28 +116,27 @@ public void run (
 		IJ.error("Unable to process either RGB or HSB stacks");
 		return;
 	}
-	GenericDialog gd = new GenericDialog("StackReg");
-	final String[] transformationItem = {
-		"Translation",
-		"Rigid Body",
-		"Scaled Rotation",
-		"Affine"
-	};
-	//gd.addChoice("Transformation:", transformationItem, "Rigid Body");	//SR 2019-09-30
-	gd.addChoice("Transformation:", transformationItem, transformationItem[transformType]);	//SR 2019-09-30
-	gd.addCheckbox("Credits", false);
-	gd.showDialog();
-	if (gd.wasCanceled()) {
-		return;
-	}
-	final int transformation = gd.getNextChoiceIndex();
+        ImagePlus dup = imp.duplicate();
+        runRegister(imp);
+        dup.show();
+        for ( int i = 0; i < transformers.size(); i++)
+        {
+            Transformer trans = transformers.get(i);
+            trans.doTransformation(dup);
+        }
+}
+
+public ArrayList<Transformer> stackRegister(ImagePlus imp)
+{
+    runRegister(imp);
+    return transformers;
+}
+
+public void runRegister(ImagePlus imp)
+{
+	final int transformation = 1; // Rigid-body transformation
 	transformType = transformation;	//SR 2019-09-30: remember transform type
-	if (gd.getNextBoolean()) {
-		final stackRegCredits dialog = new stackRegCredits(IJ.getInstance());
-		GUI.center(dialog);
-		dialog.setVisible(true);
-		return;
-	}
+	
 	final int width = imp.getWidth();
 	final int height = imp.getHeight();
 	final int targetSlice = imp.getCurrentSlice();
@@ -143,6 +146,9 @@ public void run (
 		{0.0, 0.0, 1.0}
 	};
 	double[][] anchorPoints = null;
+        
+        transformers = new ArrayList<Transformer>();
+        
 	switch (transformation) {
 		case 0: {
 			anchorPoints = new double[1][3];
@@ -1156,34 +1162,15 @@ private ImagePlus registerSlice (
 				str += IJ.d2s(globalTransform[i][j],9) + ", ";
 			IJ.log(str);
 		}
-*/
 		IJ.log("localTransform: " + IJ.d2s(s,0));
 		for (int i = 0; (i < 3); i++) {
 			String str = "";
 			for (int j = 0; (j < 3); j++) 
 				str += IJ.d2s(localTransform[i][j],9) + ", ";
 			IJ.log(str);
-		}
-/*
-		IJ.log("rescued:");
-		for (int i = 0; (i < 3); i++) {
-			String str = "";
-			for (int j = 0; (j < 3); j++) 
-				str += IJ.d2s(rescued[i][j],9) + ", ";
-			IJ.log(str);
-		}
-*/
-		final ResultsTable table = new ResultsTable(3);
-		table.reset();
-		table.setPrecision(9);
-		table.showRowIndexes(true);
-		for (int i = 0; (i < 3); i++) {
-			table.incrementCounter();
-			table.addValue("a", localTransform[i][0]);
-			table.addValue("b", localTransform[i][1]);
-			table.addValue("c", localTransform[i][2]);
-		}
-		table.show("Local Transform");
+		} */
+
+		
 //SR 2019-09-30 end
 		switch (imp.getType()) {
 			case ImagePlus.COLOR_256: {
@@ -1901,25 +1888,13 @@ private ImagePlus registerSlice (
 									* anchorPoints[2][j];
 							}
 						}
-						turboReg = IJ.runPlugIn("TurboReg_", "-transform"
-							+ " -file " + sourcePathAndFileName
-							+ " " + width
-							+ " " + height
-							+ " -rigidBody"
-							+ " " + sourcePoints[0][0]
-							+ " " + sourcePoints[0][1]
-							+ " " + (width / 2)
-							+ " " + (height / 2)
-							+ " " + sourcePoints[1][0]
-							+ " " + sourcePoints[1][1]
-							+ " " + (width / 2)
-							+ " " + (height / 4)
-							+ " " + sourcePoints[2][0]
-							+ " " + sourcePoints[2][1]
-							+ " " + (width / 2)
-							+ " " + ((3 * height) / 4)
-							+ " -hideOutput"
-						);
+                                                // Save the transformation to apply to do the alignement
+                                                Transformer trans = new Transformer();
+                                                trans.setSize(width ,height);
+                                                trans.setSource(sourcePoints);
+                                                trans.setSlice(s);
+                                                transformers.add(trans);
+						
 						break;
 					}
 					case 2: {
@@ -1992,40 +1967,6 @@ private ImagePlus registerSlice (
 						return(null);
 					}
 				}
-				if (turboReg == null) {
-					throw(new ClassNotFoundException());
-				}
-				method = turboReg.getClass().getMethod("getTransformedImage",
-					(Class[])null);
-				ImagePlus transformedSource =
-					(ImagePlus)method.invoke(turboReg);
-				transformedSource.getStack().deleteLastSlice();
-				switch (imp.getType()) {
-					case ImagePlus.GRAY8: {
-						transformedSource.getProcessor().setMinAndMax(
-							0.0, 255.0);
-						final ImageConverter converter =
-							new ImageConverter(transformedSource);
-						converter.convertToGray8();
-						break;
-					}
-					case ImagePlus.GRAY16: {
-						transformedSource.getProcessor().setMinAndMax(
-							0.0, 65535.0);
-						final ImageConverter converter =
-							new ImageConverter(transformedSource);
-						converter.convertToGray16();
-						break;
-					}
-					case ImagePlus.GRAY32: {
-						break;
-					}
-					default: {
-						IJ.error("Unexpected image type");
-						return(null);
-					}
-				}
-				imp.setProcessor(null, transformedSource.getProcessor());
 				break;
 			}
 			default: {
