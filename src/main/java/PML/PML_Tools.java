@@ -1,4 +1,4 @@
-package PMLTools;
+package PML;
 
 
 import fiji.util.gui.GenericDialogPlus;
@@ -17,15 +17,8 @@ import ij.process.ImageProcessor;
 import java.awt.Color;
 import java.awt.Font;
 import java.io.File;
-import java.io.IOException;
-import java.util.List;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
-import loci.common.services.DependencyException;
-import loci.common.services.ServiceException;
-import loci.common.services.ServiceFactory;
-import loci.formats.FormatException;
 import mcib3d.geom.Object3D;
 import mcib3d.geom.Object3DVoxels;
 import mcib3d.geom.Object3D_IJUtils;
@@ -39,8 +32,6 @@ import mcib3d.image3d.processing.FastFilters3D;
 import mcib3d.image3d.regionGrowing.Watershed3D;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import loci.formats.meta.IMetadata;
-import loci.formats.services.OMEXMLService;
-import loci.plugins.util.ImageProcessorReader;
 import mpicbg.ij.integral.RemoveOutliers;
 import net.haesleinhuepf.clij.clearcl.ClearCLBuffer;
 import net.haesleinhuepf.clij2.CLIJ2;
@@ -59,31 +50,31 @@ import org.apache.commons.io.FilenameUtils;
 public class PML_Tools {
    
     // min nucleus volume in pixels^3
-    public static double minNuc = 10;
+    public double minNuc = 10;
     // max nucleus volume in pixels^3
-    public static double maxNuc = 500;
+    public double maxNuc = 500;
     
     // min volume in pixels^3 for dots
-    public static double minPML = 0.1;
+    public double minPML = 0.1;
     // max volume in pixels^3 for dots
-    public static double maxPML = 5;
-    private static Calibration cal = new Calibration(); 
+    public double maxPML = 5;
+    private Calibration cal = new Calibration(); 
     
     // dots dog paramaters
-    private static int sig1 = 2;
-    private static int sig2 = 4;
+    private int sig1 = 2;
+    private int sig2 = 4;
     // dots threshold method
-    private static String thMet = "Moments";
+    private String thMet = "Moments";
     // pml dot dilatation factor for diffuse mask
-    private static float dilate = 0.5f;
+    private float dilate = 0.5f;
     
-    public static CLIJ2 clij2 = CLIJ2.getInstance();
+    public CLIJ2 clij2 = CLIJ2.getInstance();
     
      /**
      * check  installed modules
      * @return 
      */
-    public static boolean checkInstalledModules() {
+    public boolean checkInstalledModules() {
         // check install
         ClassLoader loader = IJ.getClassLoader();
         try {
@@ -104,7 +95,7 @@ public class PML_Tools {
     /**
      * Find images in folder
      */
-    public static ArrayList findImages(String imagesFolder, String imageExt) {
+    public ArrayList findImages(String imagesFolder, String imageExt) {
         File inDir = new File(imagesFolder);
         String[] files = inDir.list();
         if (files == null) {
@@ -127,7 +118,7 @@ public class PML_Tools {
      * @param meta
      * @return 
      */
-    public static Calibration findImageCalib(IMetadata meta) {
+    public Calibration findImageCalib(IMetadata meta) {
         cal = new Calibration();  
         // read image calibration
         cal.pixelWidth = meta.getPixelsPhysicalSizeX(0).value().doubleValue();
@@ -146,12 +137,12 @@ public class PML_Tools {
      *
      * @param img
      */
-    public static void closeImages(ImagePlus img) {
+    public void closeImages(ImagePlus img) {
         img.flush();
         img.close();
     }
     
-    public static Objects3DPopulation getPopFromImage(ImagePlus img) {
+    public Objects3DPopulation getPopFromImage(ImagePlus img) {
         // label binary images first
         ImageLabeller labeller = new ImageLabeller();
         ImageInt labels = labeller.getLabels(ImageHandler.wrap(img));
@@ -171,7 +162,7 @@ public class PML_Tools {
      * @param sizeZ
      * @return imgOut
      */ 
-    public static ClearCLBuffer medianFilter(ClearCLBuffer imgCL, double sizeX, double sizeY, double sizeZ) {
+    public ClearCLBuffer medianFilter(ClearCLBuffer imgCL, double sizeX, double sizeY, double sizeZ) {
         ClearCLBuffer imgIn = clij2.push(imgCL);
         ClearCLBuffer imgOut = clij2.create(imgIn);
         clij2.median3DBox(imgIn, imgOut, sizeX, sizeY, sizeZ);
@@ -187,7 +178,7 @@ public class PML_Tools {
      * @param size2
      * @return imgGauss
      */ 
-    public static ClearCLBuffer DOG(ClearCLBuffer imgCL, double size1, double size2) {
+    public ClearCLBuffer DOG(ClearCLBuffer imgCL, double size1, double size2) {
         ClearCLBuffer imgCLDOG = clij2.create(imgCL);
         clij2.differenceOfGaussian3D(imgCL, imgCLDOG, size1, size1, size1, size2, size2, size2);
         clij2.release(imgCL);
@@ -198,7 +189,7 @@ public class PML_Tools {
      * Fill hole
      * USING CLIJ2
      */
-    private static void fillHole(ClearCLBuffer imgCL) {
+    private void fillHole(ClearCLBuffer imgCL) {
         long[] dims = clij2.getSize(imgCL);
         ClearCLBuffer slice = clij2.create(dims[0], dims[1]);
         ClearCLBuffer slice_filled = clij2.create(slice);
@@ -218,7 +209,7 @@ public class PML_Tools {
      * @param thMed
      * @param fill 
      */
-    public static ClearCLBuffer threshold(ClearCLBuffer imgCL, String thMed, boolean fill) {
+    public ClearCLBuffer threshold(ClearCLBuffer imgCL, String thMed, boolean fill) {
         ClearCLBuffer imgCLBin = clij2.create(imgCL);
         clij2.automaticThreshold(imgCL, imgCLBin, thMed);
         if (fill)
@@ -228,9 +219,10 @@ public class PML_Tools {
         
     /**
      * Dialog 
-     * A finir paramètres de taille etc ....
+     * 
+     * @return 
      */
-    public static String dialog() {
+    public String dialog() {
         String dir = "";
         GenericDialogPlus gd = new GenericDialogPlus("Parameters");
         gd.addDirectoryField("Choose Directory Containing Image Files : ", "");
@@ -255,7 +247,7 @@ public class PML_Tools {
      * @param factor
      * @return img
      */
-    public static ImagePlus removeOutliers(ImagePlus img, int radX, int radY, float factor) {
+    public ImagePlus removeOutliers(ImagePlus img, int radX, int radY, float factor) {
         
         for (int i = 0; i < img.getNSlices(); i++) {
             img.setSlice(i);
@@ -272,7 +264,7 @@ public class PML_Tools {
      * @param imgNuc
      * @return 
      */
-    public static Object3D findnucleus(ImagePlus imgNuc) {
+    public Object3D findnucleus(ImagePlus imgNuc) {
         removeOutliers(imgNuc, 20, 20, 1);
         ImageStack stack = new ImageStack(imgNuc.getWidth(), imgNuc.getHeight());
         for (int i = 1; i <= imgNuc.getStackSize(); i++) {
@@ -299,7 +291,7 @@ public class PML_Tools {
     
     
     // Threshold images and fill holes
-    public static void threshold(ImagePlus img, AutoThresholder.Method thMed, boolean fill) {
+    public void threshold(ImagePlus img, AutoThresholder.Method thMed, boolean fill) {
         //  Threshold and binarize
         img.setZ(img.getNSlices()/2);
         img.updateAndDraw();
@@ -311,30 +303,19 @@ public class PML_Tools {
         }
     }
     
-    /**
-     * Register image
-     */
-    public static void driftCorrection(ImagePlus img, ArrayList<double[]> mat) {
-        
-        
-    }
-    
     
     /**
-     * Find image drift correction
+     *Z project
      * @param img
      * @return 
      */
-    public static ArrayList<double[]> stackRegister(ImagePlus img) {
-       ArrayList<double[]> mat = new ArrayList<>();
+    public ImagePlus stackProj(ImagePlus img) {
        ZProjector proj = new ZProjector(img);
        proj.doHyperStackProjection(true);
        proj.setMethod(ZProjector.MAX_METHOD);
        proj.doProjection();
        ImagePlus imgProj = proj.getProjection();
-        
-       
-       return(mat); 
+       return(imgProj); 
     }
     
     /** 
@@ -342,7 +323,7 @@ public class PML_Tools {
      * @param img channel
      * @return dots population
      */
-    public static Objects3DPopulation findDots(ImagePlus img) {
+    public Objects3DPopulation findDots(ImagePlus img) {
         ClearCLBuffer imgCL = clij2.push(img);
         ClearCLBuffer imgCLMed = clij2.create(imgCL);
         clij2.mean3DBox(imgCL, imgCLMed, 1, 1, 1);
@@ -359,7 +340,7 @@ public class PML_Tools {
     } 
     
     
-    public static Objects3DPopulation getPopFromImage(ImagePlus img, Calibration cal) {
+    public Objects3DPopulation getPopFromImage(ImagePlus img, Calibration cal) {
         // label binary images first
         ImageLabeller labeller = new ImageLabeller();
         ImageInt labels = labeller.getLabels(ImageHandler.wrap(img));
@@ -380,7 +361,7 @@ public class PML_Tools {
      * @param mean
      * @return 
      */
-    public static double pmlDiffus(Objects3DPopulation pmlPop, Object3D nucObj, ImagePlus imgPML) {
+    public double pmlDiffus(Objects3DPopulation pmlPop, Object3D nucObj, ImagePlus imgPML) {
         ImageHandler imhDotsDiffuse = ImageHandler.wrap(imgPML.duplicate());
         double pmlIntDiffuse ;
         int pmlDots = pmlPop.getNbObjects();
@@ -403,7 +384,7 @@ public class PML_Tools {
     /**
      * Save image objects
      */
-    public static void saveImageObjects(ImagePlus img, Object3D nucObj, Objects3DPopulation pmlPop, String pathName) {
+    public void saveImageObjects(ImagePlus img, Object3D nucObj, Objects3DPopulation pmlPop, String pathName) {
         ImageHandler imhObjects = ImageHandler.wrap(img).createSameDimensions();
         for (int o = 0; o < pmlPop.getNbObjects(); o++) {
             Object3D pmlObj = pmlPop.getObject(o);
@@ -419,7 +400,7 @@ public class PML_Tools {
     
                         
     // write object labels
-    public static void labelsObject (Object3D obj, ImagePlus img, int number, int color) {
+    public void labelsObject (Object3D obj, ImagePlus img, int number, int color) {
         Font tagFont = new Font("SansSerif", Font.PLAIN, 24);
         int[] box = obj.getBoundingBox();
         int z = (int)obj.getCenterZ();
@@ -441,7 +422,7 @@ public class PML_Tools {
      * @param imgDotsOrg
 
      */
-    public static void saveDiffusImage(Objects3DPopulation pmlPop, Object3D nucObj, ImagePlus imgDotsOrg, String pathName) {
+    public void saveDiffusImage(Objects3DPopulation pmlPop, Object3D nucObj, ImagePlus imgDotsOrg, String pathName) {
         ImageHandler imhDotsDiffuse = ImageHandler.wrap(imgDotsOrg.duplicate());
        
         float dilate = 1.5f;
@@ -462,7 +443,7 @@ public class PML_Tools {
     }
            
     
-    public static ImagePlus WatershedSplit(ImagePlus binaryMask, float rad) {
+    public ImagePlus WatershedSplit(ImagePlus binaryMask, float rad) {
         float resXY = 1;
         float resZ = 1;
         float radXY = rad;
@@ -491,7 +472,7 @@ public class PML_Tools {
       /*
     Draw countours of objects
     */
-    public static void drawCountours(Object3D obj, ImagePlus img, Color col) {
+    public void drawCountours(Object3D obj, ImagePlus img, Color col) {
         ImagePlus imgMask = IJ.createImage("mask", img.getWidth(), img.getHeight(), img.getNSlices(), 8);
         for (int z = obj.getZmin(); z < obj.getZmax(); z++) {
             imgMask.setZ(z+1);
@@ -515,7 +496,7 @@ public class PML_Tools {
      * @param pmlPop
      * @return 
      */
-    public static DescriptiveStatistics getPMLVolume(Objects3DPopulation pmlPop) {
+    public DescriptiveStatistics getPMLVolume(Objects3DPopulation pmlPop) {
         DescriptiveStatistics pmlVolume = new DescriptiveStatistics();
         for (int i = 0; i < pmlPop.getNbObjects(); i++) {
             Object3D pmlObj = pmlPop.getObject(i);
@@ -531,7 +512,7 @@ public class PML_Tools {
      * @param img
      * @return 
      */
-    public static DescriptiveStatistics getPMLIntensity(Objects3DPopulation pmlPop, ImagePlus img) {
+    public DescriptiveStatistics getPMLIntensity(Objects3DPopulation pmlPop, ImagePlus img) {
         DescriptiveStatistics pmlInt = new DescriptiveStatistics();
         ImageHandler imh = ImageHandler.wrap(img);
         for (int i = 0; i < pmlPop.getNbObjects(); i++) {

@@ -1,3 +1,5 @@
+package PML;
+
 /*
  * Find dots (PML) in nucleus
  * Measure integrated intensity, nb of dots per nucleus 
@@ -6,20 +8,6 @@
 
 
 
-
-import PMLTools.PML_Tools;
-import static PMLTools.PML_Tools.closeImages;
-import static PMLTools.PML_Tools.stackRegister;
-import static PMLTools.PML_Tools.dialog;
-import static PMLTools.PML_Tools.driftCorrection;
-import static PMLTools.PML_Tools.findDots;
-import static PMLTools.PML_Tools.findImageCalib;
-import static PMLTools.PML_Tools.findImages;
-import static PMLTools.PML_Tools.getPMLIntensity;
-import static PMLTools.PML_Tools.getPMLVolume;
-import static PMLTools.PML_Tools.pmlDiffus;
-import static PMLTools.PML_Tools.saveDiffusImage;
-import static PMLTools.PML_Tools.saveImageObjects;
 import ij.*;
 import ij.gui.Roi;
 import ij.plugin.PlugIn;
@@ -34,14 +22,8 @@ import loci.formats.services.OMEXMLService;
 import loci.plugins.util.ImageProcessorReader;
 import mcib3d.geom.Objects3DPopulation;
 import mcib3d.geom.Object3D;
-import mcib3d.geom.Object3DVoxels;
-import ij.gui.PolygonRoi;
 import ij.measure.Calibration;
-import ij.plugin.filter.MaximumFinder;
 import ij.plugin.frame.RoiManager;
-import ij.process.ImageProcessor;
-import java.awt.Color;
-import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -61,37 +43,11 @@ public class PML_LiveCells implements PlugIn {
 
     private final boolean canceled = false;
     private String imageDir = "";
-    public static String outDirResults = "";
+    private String outDirResults = "";
     private BufferedWriter outPutResults;
     private Calibration cal = new Calibration();
-
- 
-  
-    /**
-     * Find convex hull of PML dots
-     * @param img
-     * @return nucleusObj
-     */
-    private Object3D find_nucleus(ImagePlus img) {
-        MaximumFinder max = new MaximumFinder();
-        for (int z = 1; z <= img.getNSlices(); z++ ) {
-            ImageProcessor ip = img.getStack().getProcessor(z);
-            ip.blurGaussian(2);
-            Polygon polyMax = max.getMaxima(ip, 10, true);
-            if (polyMax.npoints > 1) {
-                Polygon convexhull = new PolygonRoi(polyMax, Roi.POLYGON).getConvexHull();
-                ip.setRoi(convexhull);
-                ip.setColor(Color.black);
-                ip.fillPolygon(convexhull);
-                for (int i =0; i < 10; i++)
-                    ip.dilate();
-            }
-        }
-        img.updateAndDraw();
-        Object3DVoxels nucObj = new Object3DVoxels(img, 255);
-        return(nucObj);
-    }
-           
+    
+    private PML_Tools pml = new PML_Tools();
     
     /**
      * 
@@ -104,13 +60,13 @@ public class PML_LiveCells implements PlugIn {
                 IJ.showMessage(" Pluging canceled");
                 return;
             }
-            imageDir = dialog();
+            imageDir = pml.dialog();
             if (imageDir == null) {
                 return;
             }
             String fileExt = "nd";
             File inDir = new File(imageDir);
-            ArrayList<String> imageFiles = findImages(imageDir, fileExt);
+            ArrayList<String> imageFiles = pml.findImages(imageDir, fileExt);
             if (imageFiles == null) {
                 return;
             }
@@ -135,7 +91,7 @@ public class PML_LiveCells implements PlugIn {
                 reader.setId(f);
                 reader.setSeries(series);
                 if (nucIndex == 0) {
-                    cal = findImageCalib(meta);
+                    cal = pml.findImageCalib(meta);
                 }
                 
                 // Find ROI file
@@ -183,10 +139,10 @@ public class PML_LiveCells implements PlugIn {
                     
                     // Stack registration
                     ImagePlus imgNuc = BF.openImagePlus(options)[0];
-                    ArrayList<double[]> matReg = stackRegister(imgNuc);
+                    ArrayList<Transformer> trans = new StackReg_Plus().stackRegister(pml.stackProj(imgNuc));
                     ArrayList<Double> pmlDiffusInt = new ArrayList<>();
                     ArrayList<DescriptiveStatistics> pmlInt = new ArrayList<>();
-                    closeImages(imgNuc);
+                    pml.closeImages(imgNuc);
                     // for each time find nucleus, plml
                     for (int t = 0; t < reader.getSizeT(); t++) {
                         options.setTBegin(0, t);
@@ -194,22 +150,22 @@ public class PML_LiveCells implements PlugIn {
                         // Open nucleus channel
                         imgNuc = BF.openImagePlus(options)[0];
                         // apply image drift correction
-                        driftCorrection(imgNuc, matReg);
+                        trans.get(t).doTransformation(imgNuc);
                         // find nuc object
-                        Object3D nucObj = PML_Tools.findnucleus(imgNuc);
+                        Object3D nucObj = pml.findnucleus(imgNuc);
                         nucPop.addObject(nucObj);
                         // Open pml channel
                         ImagePlus imgPML = BF.openImagePlus(options)[1];
                         // apply image drift correction
-                        driftCorrection(imgPML, matReg);
-                        Objects3DPopulation pmlPop = findDots(imgPML);
+                        trans.get(t).doTransformation(imgPML);
+                        Objects3DPopulation pmlPop = pml.findDots(imgPML);
                         plmPopList.add(pmlPop);
-                        pmlDiffusInt.add(pmlDiffus(pmlPop, nucObj, imgPML));
-                        pmlInt.add(getPMLIntensity(pmlPop, imgPML));
+                        pmlDiffusInt.add(pml.pmlDiffus(pmlPop, nucObj, imgPML));
+                        pmlInt.add(pml.getPMLIntensity(pmlPop, imgPML));
                         // Save images objects
-                        saveImageObjects(imgPML, nucObj, pmlPop, outDirResults+rootName+"nuc_"+nucIndex+"_Objects.tif");
+                        pml.saveImageObjects(imgPML, nucObj, pmlPop, outDirResults+rootName+"nuc_"+nucIndex+"_Objects.tif");
                         // Save diffus image
-                        saveDiffusImage(pmlPop, nucObj, imgPML, outDirResults+rootName+"nuc_"+nucIndex+"_Diffuse.tif");
+                        pml.saveDiffusImage(pmlPop, nucObj, imgPML, outDirResults+rootName+"nuc_"+nucIndex+"_Diffuse.tif");
                     }
                     
                     // find parameters
@@ -218,9 +174,9 @@ public class PML_LiveCells implements PlugIn {
                         double nucVol = nucObj.getVolumeUnit();
                         Objects3DPopulation pmlPop = plmPopList.get(i);
                         int pmlDots = pmlPop.getNbObjects();
-                        double pmlVolMean = getPMLVolume(pmlPop).getMean();
-                        double pmlVolStd = getPMLVolume(pmlPop).getStandardDeviation();
-                        double pmlVolTotal = getPMLVolume(pmlPop).getSum();
+                        double pmlVolMean = pml.getPMLVolume(pmlPop).getMean();
+                        double pmlVolStd = pml.getPMLVolume(pmlPop).getStandardDeviation();
+                        double pmlVolTotal = pml.getPMLVolume(pmlPop).getSum();
                         double minDistCenterMean = pmlPop.distancesAllClosestCenter().getMean(); 
                         double minDistCenterSD = pmlPop.distancesAllClosestCenter().getStdDev();
                         outPutResults.write(i+"\t"+nucVol+"\t"+pmlPop.getNbObjects()+"\t"+pmlDiffusInt.get(i)+"\t"+pmlInt.get(i).getMean()+"\t"
