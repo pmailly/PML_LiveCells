@@ -8,16 +8,16 @@
 
 
 import PMLTools.PML_Tools;
-import static PMLTools.PML_Tools.correctDrift;
+import static PMLTools.PML_Tools.closeImages;
+import static PMLTools.PML_Tools.stackRegister;
 import static PMLTools.PML_Tools.dialog;
+import static PMLTools.PML_Tools.driftCorrection;
 import static PMLTools.PML_Tools.findDots;
 import static PMLTools.PML_Tools.findImageCalib;
 import static PMLTools.PML_Tools.findImages;
 import ij.*;
 import ij.gui.Roi;
-import ij.io.FileSaver;
 import ij.plugin.PlugIn;
-import ij.process.AutoThresholder;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -28,8 +28,6 @@ import loci.formats.meta.IMetadata;
 import loci.formats.services.OMEXMLService;
 import loci.plugins.util.ImageProcessorReader;
 import mcib3d.geom.Objects3DPopulation;
-import mcib3d.image3d.ImageHandler;
-import mcib3d.image3d.ImageInt;
 import mcib3d.geom.Object3D;
 import mcib3d.geom.Object3DVoxels;
 import ij.gui.PolygonRoi;
@@ -50,7 +48,6 @@ import loci.common.services.ServiceException;
 import loci.formats.FormatException;
 import loci.plugins.BF;
 import loci.plugins.in.ImporterOptions;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 
 
@@ -88,32 +85,7 @@ public class PML_LiveCells implements PlugIn {
         Object3DVoxels nucObj = new Object3DVoxels(img, 255);
         return(nucObj);
     }
-       
-    /**
-     * Create a time subStack
-     * @param imp
-     * @param first
-     * @param last
-     * @param inc
-     * @param title
-     * @return subStack 
-     */
-    public ImagePlus createSubStack(ImagePlus imp, int first, int last, int inc, String title) throws Exception {
-        ImageStack stack = imp.getStack();
-        ImageStack stack2 = null;
-        for (int i= first, j=0; i<= last; i+=inc) {
-            int currSlice = i-j;
-            ImageProcessor ip2 = stack.getProcessor(currSlice);
-            if (stack2==null)
-                stack2 = new ImageStack(ip2.getWidth(), ip2.getHeight());
-            stack2.addSlice(stack.getSliceLabel(currSlice), ip2);
-        }
-        ImagePlus substack = imp.createImagePlus();
-        substack.setStack(title, stack2);
-        substack.setCalibration(imp.getCalibration());
-        return substack;
-    }
-    
+           
     
     /**
      * 
@@ -142,12 +114,7 @@ public class PML_LiveCells implements PlugIn {
             if (!Files.exists(Paths.get(outDirResults))) {
                 outDir.mkdir();
             }
-            // temp dir
-            String tempDir = outDirResults+"Temp";
-            File tmpDir = new File(tempDir);
-            if (!Files.exists(Paths.get(tempDir))) {
-                tmpDir.mkdir();
-            }
+
             // create OME-XML metadata store of the latest schema version
             ServiceFactory factory;
             factory = new ServiceFactory();
@@ -209,18 +176,25 @@ public class PML_LiveCells implements PlugIn {
                     
                     Objects3DPopulation nucPop = new Objects3DPopulation();
                     ArrayList<Objects3DPopulation> plmPop = new ArrayList<>();
+                    
+                    // Stack registration
+                    ImagePlus imgNuc = BF.openImagePlus(options)[0];
+                    ArrayList<double[]> matReg = stackRegister(imgNuc);
+                    closeImages(imgNuc);
                     // for each time find nucleus, plml
                     for (int t = 0; t < reader.getSizeT(); t++) {
                         options.setTBegin(0, t);
                         options.setTEnd(0, t);
                         // Open nucleus channel
-                        ImagePlus imgNuc = BF.openImagePlus(options)[0];
-                        // find image drift correction
-                        double[] xytDrift = correctDrift(imgNuc);
+                        imgNuc = BF.openImagePlus(options)[0];
+                        // apply image drift correction
+                        driftCorrection(imgNuc, matReg);
                         // find nuc object
-                        nucPop.addObject(PML_Tools.findnucleus(imgNuc, t));
+                        nucPop.addObject(PML_Tools.findnucleus(imgNuc));
                         // Open pml channel
                         ImagePlus imgPML = BF.openImagePlus(options)[1];
+                        // apply image drift correction
+                        driftCorrection(imgPML, matReg);
                         plmPop.add(findDots(imgPML, "fileName"));
                     }
                 }

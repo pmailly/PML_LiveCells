@@ -11,6 +11,7 @@ import ij.gui.Roi;
 import ij.io.FileSaver;
 import ij.measure.Calibration;
 import ij.plugin.GaussianBlur3D;
+import ij.plugin.ZProjector;
 import ij.process.AutoThresholder;
 import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
@@ -353,10 +354,9 @@ public class PML_Tools {
 /**
      * Nucleus segmentation 2
      * @param imgNuc
-     * @param time
      * @return 
      */
-    public static Object3D findnucleus(ImagePlus imgNuc, int time) {
+    public static Object3D findnucleus(ImagePlus imgNuc) {
         removeOutliers(imgNuc, 20, 20, 1);
         ImageStack stack = new ImageStack(imgNuc.getWidth(), imgNuc.getHeight());
         for (int i = 1; i <= imgNuc.getStackSize(); i++) {
@@ -377,7 +377,6 @@ public class PML_Tools {
         Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(imgStack).getObjectsWithinVolume(minNuc, maxNuc, true));
         nucPop.removeObjectsTouchingBorders(imgStack, false);
         Object3D nucObj = nucPop.getObject(0);
-        nucObj.setValue(time);
         closeImages(imgStack);
         return(nucObj);
     }
@@ -397,12 +396,26 @@ public class PML_Tools {
     }
     
     /**
-     * Fin image drift correction
+     * Register image
+     */
+    public static void driftCorrection(ImagePlus img, ArrayList<double[]> mat) {
+        
+        
+    }
+    
+    
+    /**
+     * Find image drift correction
      * @param img
      * @return 
      */
-    public static double[] correctDrift(ImagePlus img) {
-       double[] mat = new double[3];
+    public static ArrayList<double[]> stackRegister(ImagePlus img) {
+       ArrayList<double[]> mat = new ArrayList<>();
+       ZProjector proj = new ZProjector(img);
+       proj.doHyperStackProjection(true);
+       proj.setMethod(ZProjector.MAX_METHOD);
+       proj.doProjection();
+       ImagePlus imgProj = proj.getProjection();
         
        
        return(mat); 
