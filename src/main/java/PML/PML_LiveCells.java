@@ -10,6 +10,7 @@ package PML;
 
 import ij.*;
 import ij.gui.Roi;
+import ij.gui.WaitForUserDialog;
 import ij.plugin.PlugIn;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -71,7 +72,7 @@ public class PML_LiveCells implements PlugIn {
                 return;
             }
             // create output folder
-            outDirResults = inDir + File.separator+ "Results"+ File.separator;
+            outDirResults = imageDir + "Results"+ File.separator;
             File outDir = new File(outDirResults);
             if (!Files.exists(Paths.get(outDirResults))) {
                 outDir.mkdir();
@@ -95,17 +96,11 @@ public class PML_LiveCells implements PlugIn {
                 }
                 
                 // Find ROI file
-                String roi_file = imageDir+rootName+".zip";
-                if (!new File(roi_file).exists()) {
+                String roi_file  = (new File(imageDir+rootName+".zip").exists()) ? imageDir+rootName+".zip" :  ((new File(imageDir+rootName+".roi").exists()) ? imageDir+rootName+".roi" : null);
+                System.out.println(roi_file);
+                if (roi_file == null) {
                     IJ.showStatus("No ROI file found !") ;
                     return;
-                }
-                else {
-                    roi_file = imageDir+rootName+".roi";
-                    if (!new File(roi_file).exists()) {
-                        IJ.showStatus("No ROI file found !") ;
-                        return;
-                    }
                 }
                 
                 // find rois
@@ -130,7 +125,7 @@ public class PML_LiveCells implements PlugIn {
                     options.setCrop(true);
                     options.setCropRegion(0, new Region(rectRoi.x, rectRoi.y, rectRoi.width, rectRoi.height));
                     options.setCBegin(0, 0);
-                    options.setCEnd(0, 1);
+                    options.setCEnd(0, 0);
                     options.setColorMode(ImporterOptions.COLOR_MODE_GRAYSCALE);
                     options.setQuiet(true);
                     
@@ -147,14 +142,20 @@ public class PML_LiveCells implements PlugIn {
                     for (int t = 0; t < reader.getSizeT(); t++) {
                         options.setTBegin(0, t);
                         options.setTEnd(0, t);
+                        options.setCBegin(0, 0);
+                        options.setCEnd(0, 0);
                         // Open nucleus channel
                         imgNuc = BF.openImagePlus(options)[0];
+//                        imgNuc.show();
+//                        new WaitForUserDialog(f).show();
                         // apply image drift correction
                         trans.get(t).doTransformation(imgNuc);
                         // find nuc object
                         Object3D nucObj = pml.findnucleus(imgNuc);
                         nucPop.addObject(nucObj);
                         // Open pml channel
+                        options.setCBegin(0, 1);
+                        options.setCEnd(0, 1);
                         ImagePlus imgPML = BF.openImagePlus(options)[1];
                         // apply image drift correction
                         trans.get(t).doTransformation(imgPML);

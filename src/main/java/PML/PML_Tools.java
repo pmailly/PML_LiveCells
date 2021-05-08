@@ -229,9 +229,9 @@ public class PML_Tools {
         gd.addNumericField("Min PML size (µm3): ", minPML, 3);
         gd.addNumericField("Max PML size (µm3): ", maxPML, 3);
         gd.addMessage("Diffuse analyze");
-        gd.addNumericField("PML dilatation factor :", dilate, 3);
+        gd.addNumericField("PML dilatation factor in µm :", dilate, 3);
         gd.showDialog();
-        dir = gd.getNextString();
+        dir = gd.getNextString()+File.separator;
         minPML = gd.getNextNumber();
         maxPML = gd.getNextNumber();
         dilate = (float)gd.getNextNumber();
@@ -311,7 +311,7 @@ public class PML_Tools {
      */
     public ImagePlus stackProj(ImagePlus img) {
        ZProjector proj = new ZProjector(img);
-       proj.doHyperStackProjection(true);
+       //proj.doHyperStackProjection(true);
        proj.setMethod(ZProjector.MAX_METHOD);
        proj.doProjection();
        ImagePlus imgProj = proj.getProjection();
