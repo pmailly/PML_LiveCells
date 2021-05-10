@@ -10,6 +10,7 @@ import ij.gui.Roi;
 import ij.gui.WaitForUserDialog;
 import ij.io.FileSaver;
 import ij.measure.Calibration;
+import ij.plugin.Concatenator;
 import ij.plugin.GaussianBlur3D;
 import ij.plugin.ZProjector;
 import ij.process.AutoThresholder;
@@ -399,20 +400,34 @@ public class PML_Tools {
     /**
      * Save image objects
      */
-    public void saveImageObjects(ImagePlus img, Object3D nucObj, Objects3DPopulation pmlPop, String pathName) {
-        ImageHandler imhObjects = ImageHandler.wrap(img).createSameDimensions();
-        nucObj.draw(imhObjects, 64);
-        for (int o = 0; o < pmlPop.getNbObjects(); o++) {
-            Object3D pmlObj = pmlPop.getObject(o);
-            pmlObj.draw(imhObjects, 255);
-           // labelsObject(pmlObj, imhObjects.getImagePlus(), o, 255);
+    public ImagePlus saveImageObjects(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, String pathName, boolean nuc) {
+        ImagePlus[] hyperBin = new ImagePlus[imgArray.length];
+       for (int i=0; i<imgArray.length; i++)
+       {
+           ImagePlus img = imgArray[i];
+           
+           // image PML at time point i
+           ImageHandler imhObjects = ImageHandler.wrap(img).createSameDimensions();
+            if (nuc) nucPop.getObject(i).draw(imhObjects, 64);
+            Objects3DPopulation pmlPop = pmlPopList.get(i);
+            for (int o = 0; o < pmlPop.getNbObjects(); o++) 
+            {
+                Object3D pmlObj = pmlPop.getObject(o);
+                pmlObj.draw(imhObjects, 255);
+            // labelsObject(pmlObj, imhObjects.getImagePlus(), o, 255);
+            }
+            imhObjects.getImagePlus().setCalibration(cal);
+            imhObjects.getImagePlus().resetDisplayRange();
+            
+            hyperBin[i] = imhObjects.getImagePlus();
         }
-        
+       
+       ImagePlus hyperRes = new Concatenator().concatenate(hyperBin, false);
+       hyperRes.show();
         // save image for objects population
-        imhObjects.getImagePlus().setCalibration(cal);
-        imhObjects.getImagePlus().resetDisplayRange();
-        FileSaver ImgObjectsFile = new FileSaver(imhObjects.getImagePlus());
+        FileSaver ImgObjectsFile = new FileSaver(hyperRes);
         ImgObjectsFile.saveAsTiff(pathName);
+        return hyperRes;
     }
     
                         

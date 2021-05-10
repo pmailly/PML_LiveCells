@@ -32,6 +32,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import net.imglib2.util.ValuePair;
 
 
@@ -76,9 +77,13 @@ public class TrackMater extends TrackMatePlugIn_ {
         settings.detectorSettings.put( "channel", 1 );
         
         // Set-up tracker
-        settings.trackerSettings.put("max_distance", 1);
-        settings.trackerSettings.put("max_frame_gap", 0);
-        settings.trackerSettings.put("max_gap_distance", 1);
+        //settings.trackerSettings.put("max_distance", 1);
+        settings.trackerSettings.replace("max_frame_gap", 0);
+        settings.trackerSettings.replace("max_gap_distance", 1);
+     
+        trackmate.getSettings().trackerSettings.replace("max_distance", 1);
+        Set keys = settings.trackerSettings.keySet();
+        System.out.println(keys.toString());
         
         // Run trackMate with the settings
         final String welcomeMessage = TrackMate.PLUGIN_NAME_STR + " v" + TrackMate.PLUGIN_NAME_VERSION + " started on:\n" + TMUtils.getCurrentTimeString() + '\n';

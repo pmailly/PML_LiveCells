@@ -171,12 +171,13 @@ public class PML_LiveCells implements PlugIn {
                     }
 
                     // create hyperstack
-                    ImagePlus imgHyper = new Concatenator().concatenate(imgDiffusArray, false);
+                    //ImagePlus imgHyper = new Concatenator().concatenate(imgDiffusArray, true);
 
                     // Save diffus image
-                    pml.saveDiffusImage(pmlPopList, imgDiffusArray, outDirResults+rootName+"_Diffuse.tif");
+                    //pml.saveDiffusImage(pmlPopList, imgDiffusArray, outDirResults+rootName+"_Diffuse.tif");
                     // Save images objects
-                    ImagePlus dotsBin = pml.saveImageObjects(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName);
+                     pml.saveImageObjects(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName+"_Objects.tif", true);
+                     ImagePlus dotsBin = pml.saveImageObjects(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName+"_PMLs.tif", false);
 
                     
                     double meanVol = 0.0;
