@@ -139,6 +139,7 @@ public class PML_LiveCells implements PlugIn {
                     ArrayList<DescriptiveStatistics> pmlInt = new ArrayList<>();
                     pml.closeImages(imgNuc);
                     // for each time find nucleus, plml
+                    ArrayList<ImagePlus> imgDiffusList = new ArrayList<>();
                     for (int t = 0; t < reader.getSizeT(); t++) {
                         options.setTBegin(0, t);
                         options.setTEnd(0, t);
@@ -149,32 +150,38 @@ public class PML_LiveCells implements PlugIn {
 //                        imgNuc.show();
 //                        new WaitForUserDialog(f).show();
                         // apply image drift correction
-                        trans.get(t).doTransformation(imgNuc);
+                        if (t>0) trans.get(t-1).doTransformation(imgNuc);
                         // find nuc object
                         Object3D nucObj = pml.findnucleus(imgNuc);
                         nucPop.addObject(nucObj);
                         // Open pml channel
                         options.setCBegin(0, 1);
                         options.setCEnd(0, 1);
-                        ImagePlus imgPML = BF.openImagePlus(options)[1];
+                        ImagePlus imgPML = BF.openImagePlus(options)[0];
                         // apply image drift correction
-                        trans.get(t).doTransformation(imgPML);
-                        Objects3DPopulation pmlPop = pml.findDots(imgPML);
+                        if ( t>0) trans.get(t-1).doTransformation(imgPML);
+                        Objects3DPopulation pmlPop = pml.findDots(imgPML, nucObj);
                         plmPopList.add(pmlPop);
                         pmlDiffusInt.add(pml.pmlDiffus(pmlPop, nucObj, imgPML));
                         pmlInt.add(pml.getPMLIntensity(pmlPop, imgPML));
                         // Save images objects
-                        pml.saveImageObjects(imgPML, nucObj, pmlPop, outDirResults+rootName+"nuc_"+nucIndex+"_Objects.tif");
+                        //pml.saveImageObjects(imgPML, nucObj, pmlPop, outDirResults+rootName+"nuc_"+nucIndex+"_Objects_t"+t+".tif");
+                        imgDiffusList.add(imgPML);
                         
-                        // Do Tracking
+                        // Save diffus image
+                        //pml.saveDiffusImage(pmlPop, nucObj, imgPML, outDirResults+rootName+"nuc_"+nucIndex+"_Diffuse_t"+t+".tif");
+                    }
+                   
+                    pml.saveDiffusImage(pmlPopList, nucPop, imgDiffusList, outDirResults+rootName+"nuc_"+nucIndex+"_Diffuse.tif");
+                    pml.saveImageObjects(pmlPopList, nucPop, imgDiffusList, outDirResults+rootName+"nuc_"+nucIndex+"_Objects.tif");
+                    
+                    
+                    /** Do Tracking
                         double meanVol = pml.getPMLVolume(pmlPop).getMean();
                         meanVol /= nucPop.getNbObjects();
                         double meanRad = Math.pow(3/(4*Math.PI)*meanVol, 1.0/3.0);
-                        IJ.run(imgPML, "TrackMate", "use_gui=false " + "save_to=["+outDirResults+rootName+"nuc_"+nucIndex+"_trackmateSaved.xml]" + "export_to=["+outDirResults+rootName+"nuc_"+nucIndex+"_trackmateExport.xml]" + "display_results=true " + "radius="+meanRad+" " + "threshold=50.1 " + "subpixel=false " + "median=false " + "channel=1 " + "max_frame_gap=0" );
-             
-                        // Save diffus image
-                        pml.saveDiffusImage(pmlPop, nucObj, imgPML, outDirResults+rootName+"nuc_"+nucIndex+"_Diffuse.tif");
-                    }
+                        IJ.run(imgPML, "TrackMate", "use_gui=false " + "save_to=["+outDirResults+rootName+"nuc_"+nucIndex+"_trackmateSaved.xml] " + "export_to=["+outDirResults+rootName+"nuc_"+nucIndex+"_trackmateExport.xml]" + " display_results=true " + "radius="+meanRad+" " + "threshold=50.1 " + "subpixel=false " + "median=false " + "channel=1 " + "max_frame_gap=0" );
+             */
                     
                     // find parameters
                     for (int i = 0; i < nucPop.getNbObjects(); i++) {

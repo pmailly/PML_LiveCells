@@ -4,6 +4,7 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.io.FileSaver;
 import ij.process.ImageConverter;
+import ij.process.ImageStatistics;
 import ij.process.ShortProcessor;
 import java.lang.reflect.Method;
 
@@ -93,7 +94,10 @@ public class Transformer {
                 final ImageConverter converter = new ImageConverter(transformedSource);
                 converter.convertToGray16();
                 imp.setProcessor(null, transformedSource.getProcessor());
-            }
+               }
+             ImageStatistics stat = imp.getStatistics();
+             double newval = stat.mean - 1*stat.stdDev;    
+             IJ.run(imp, "Macro...", "code=v=v+(v==0)*"+newval+" stack");
         }
         catch (Exception e)
         {

@@ -7,6 +7,7 @@ import ij.ImagePlus;
 import ij.ImageStack;
 import ij.Prefs;
 import ij.gui.Roi;
+import ij.gui.WaitForUserDialog;
 import ij.io.FileSaver;
 import ij.measure.Calibration;
 import ij.plugin.GaussianBlur3D;
@@ -49,15 +50,15 @@ import org.apache.commons.io.FilenameUtils;
  */
 public class PML_Tools {
    
-    // min nucleus volume in pixels^3
-    public double minNuc = 10;
-    // max nucleus volume in pixels^3
-    public double maxNuc = 500;
+    // min nucleus volume in mic^3
+    public double minNuc = 5000;
+    // max nucleus volume in micron^3
+    public double maxNuc = 30000;
     
     // min volume in pixels^3 for dots
-    public double minPML = 0.1;
+    public double minPML = 0.05;
     // max volume in pixels^3 for dots
-    public double maxPML = 5;
+    public double maxPML = 60;
     private Calibration cal = new Calibration(); 
     
     // dots dog paramaters
@@ -282,8 +283,11 @@ public class PML_Tools {
         }
         ImagePlus imgStack = new ImagePlus("Nucleus", stack);
         imgStack.setCalibration(imgNuc.getCalibration());
+        //imgStack.show();
+        //new WaitForUserDialog("test").show();
         Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(imgStack).getObjectsWithinVolume(minNuc, maxNuc, true));
         nucPop.removeObjectsTouchingBorders(imgStack, false);
+        //nucPop.updateNamesAndValues();
         Object3D nucObj = nucPop.getObject(0);
         closeImages(imgStack);
         return(nucObj);
@@ -320,19 +324,33 @@ public class PML_Tools {
      * @param img channel
      * @return dots population
      */
-    public Objects3DPopulation findDots(ImagePlus img) {
+    public Objects3DPopulation findDots(ImagePlus img, Object3D nucObj) {
         ClearCLBuffer imgCL = clij2.push(img);
-        ClearCLBuffer imgCLMed = clij2.create(imgCL);
-        clij2.mean3DBox(imgCL, imgCLMed, 1, 1, 1);
-        clij2.copy(imgCLMed, imgCL);
-        clij2.release(imgCLMed);
-        ClearCLBuffer imgCLDOG = DOG(imgCLMed, sig1, sig2);
+        //ClearCLBuffer imgCLMed = clij2.create(imgCL);
+        //clij2.mean3DBox(imgCL, imgCLMed, 1, 1, 1);
+        //clij2.copy(imgCLMed, imgCL);
+        //clij2.release(imgCLMed);
+        //clij2.release(imgCL);
+        ClearCLBuffer imgCLDOG = DOG(imgCL, sig1, sig2);
         clij2.release(imgCL);
         ImagePlus imgBin = clij2.pull(threshold(imgCLDOG, thMet, false));
         clij2.release(imgCLDOG);
         imgBin.setCalibration(img.getCalibration());
+        //imgBin.show();
+        //new WaitForUserDialog("test").show();
         Objects3DPopulation pmlPop = new Objects3DPopulation(getPopFromImage(imgBin).getObjectsWithinVolume(minPML, maxPML, true));
+        for ( int i = 0; i < pmlPop.getNbObjects(); i++)
+        {
+            Object3D obj = pmlPop.getObject(i);
+            if ( !obj.hasOneVoxelColoc(nucObj) )
+            {
+                pmlPop.removeObject(i);
+                i--;
+            }
+            
+        }
         closeImages(imgBin);
+      
         return(pmlPop);
     } 
     
@@ -383,14 +401,16 @@ public class PML_Tools {
      */
     public void saveImageObjects(ImagePlus img, Object3D nucObj, Objects3DPopulation pmlPop, String pathName) {
         ImageHandler imhObjects = ImageHandler.wrap(img).createSameDimensions();
+        nucObj.draw(imhObjects, 64);
         for (int o = 0; o < pmlPop.getNbObjects(); o++) {
             Object3D pmlObj = pmlPop.getObject(o);
             pmlObj.draw(imhObjects, 255);
-            labelsObject(pmlObj, imhObjects.getImagePlus(), o, 255);
+           // labelsObject(pmlObj, imhObjects.getImagePlus(), o, 255);
         }
-        nucObj.draw(imhObjects, 64);
+        
         // save image for objects population
         imhObjects.getImagePlus().setCalibration(cal);
+        imhObjects.getImagePlus().resetDisplayRange();
         FileSaver ImgObjectsFile = new FileSaver(imhObjects.getImagePlus());
         ImgObjectsFile.saveAsTiff(pathName);
     }
@@ -422,7 +442,7 @@ public class PML_Tools {
     public void saveDiffusImage(Objects3DPopulation pmlPop, Object3D nucObj, ImagePlus imgDotsOrg, String pathName) {
         ImageHandler imhDotsDiffuse = ImageHandler.wrap(imgDotsOrg.duplicate());
        
-        float dilate = 1.5f;
+        //float dilate = 1.5f;
         for (int p = 0; p < pmlPop.getNbObjects(); p++) {
             Object3D pmlObj = pmlPop.getObject(p);
             // dilate 
@@ -431,7 +451,8 @@ public class PML_Tools {
         }
         ImagePlus imgColor = imhDotsDiffuse.getImagePlus();
         IJ.run(imgColor, "RGB Color", "");
-        drawCountours(nucObj, imgColor, Color.white);
+        //drawCountours(nucObj, imgColor, Color.white);
+        
         // Save diffus
         FileSaver imgDiffus = new FileSaver(imgColor);
         imgDiffus.saveAsTiff(pathName);
@@ -471,6 +492,7 @@ public class PML_Tools {
     */
     public void drawCountours(Object3D obj, ImagePlus img, Color col) {
         ImagePlus imgMask = IJ.createImage("mask", img.getWidth(), img.getHeight(), img.getNSlices(), 8);
+        img.show();
         for (int z = obj.getZmin(); z < obj.getZmax(); z++) {
             imgMask.setZ(z+1);
             ImageProcessor ip = imgMask.getProcessor();
@@ -483,7 +505,6 @@ public class PML_Tools {
             img.setZ(z+1);
             img.getProcessor().setColor(col);
             img.getProcessor().drawRoi(roi);
-            img.updateAndDraw();
         }   
         closeImages(imgMask);
     }
