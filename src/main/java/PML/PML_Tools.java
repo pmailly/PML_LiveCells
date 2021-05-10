@@ -311,10 +311,7 @@ public class PML_Tools {
      */
     public ImagePlus stackProj(ImagePlus img) {
        ZProjector proj = new ZProjector(img);
-       //proj.doHyperStackProjection(true);
-       proj.setMethod(ZProjector.MAX_METHOD);
-       proj.doProjection();
-       ImagePlus imgProj = proj.getProjection();
+       ImagePlus imgProj = proj.run(img, "max all");
        return(imgProj); 
     }
     
