@@ -24,10 +24,12 @@ import loci.plugins.util.ImageProcessorReader;
 import mcib3d.geom.Objects3DPopulation;
 import mcib3d.geom.Object3D;
 import ij.measure.Calibration;
+import ij.plugin.Concatenator;
 import ij.plugin.frame.RoiManager;
 import java.awt.Rectangle;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import loci.common.Region;
@@ -130,7 +132,7 @@ public class PML_LiveCells implements PlugIn {
                     options.setQuiet(true);
                     
                     Objects3DPopulation nucPop = new Objects3DPopulation();
-                    ArrayList<Objects3DPopulation> plmPopList = new ArrayList<>();
+                    ArrayList<Objects3DPopulation> pmlPopList = new ArrayList<>();
                     
                     // Stack registration
                     ImagePlus imgNuc = BF.openImagePlus(options)[0];
@@ -138,9 +140,10 @@ public class PML_LiveCells implements PlugIn {
                     ArrayList<Double> pmlDiffusInt = new ArrayList<>();
                     ArrayList<DescriptiveStatistics> pmlInt = new ArrayList<>();
                     pml.closeImages(imgNuc);
+                    int time = reader.getSizeT();
                     // for each time find nucleus, plml
-                    ArrayList<ImagePlus> imgDiffusList = new ArrayList<>();
-                    for (int t = 0; t < reader.getSizeT(); t++) {
+                    ImagePlus[] imgDiffusArray = new ImagePlus[time];
+                    for (int t = 0; t < time; t++) {
                         options.setTBegin(0, t);
                         options.setTEnd(0, t);
                         options.setCBegin(0, 0);
@@ -161,19 +164,18 @@ public class PML_LiveCells implements PlugIn {
                         // apply image drift correction
                         if ( t>0) trans.get(t-1).doTransformation(imgPML);
                         Objects3DPopulation pmlPop = pml.findDots(imgPML, nucObj);
-                        plmPopList.add(pmlPop);
+                        pmlPopList.add(pmlPop);
                         pmlDiffusInt.add(pml.pmlDiffus(pmlPop, nucObj, imgPML));
                         pmlInt.add(pml.getPMLIntensity(pmlPop, imgPML));
-                        // Save images objects
-                        //pml.saveImageObjects(imgPML, nucObj, pmlPop, outDirResults+rootName+"nuc_"+nucIndex+"_Objects_t"+t+".tif");
-                        imgDiffusList.add(imgPML);
-                        
-                        // Save diffus image
-                        //pml.saveDiffusImage(pmlPop, nucObj, imgPML, outDirResults+rootName+"nuc_"+nucIndex+"_Diffuse_t"+t+".tif");
+                        imgDiffusArray[t] = imgPML;
                     }
-                   
-                    pml.saveDiffusImage(pmlPopList, nucPop, imgDiffusList, outDirResults+rootName+"nuc_"+nucIndex+"_Diffuse.tif");
-                    pml.saveImageObjects(pmlPopList, nucPop, imgDiffusList, outDirResults+rootName+"nuc_"+nucIndex+"_Objects.tif");
+                    // create hyperstack
+                    ImagePlus imgHyper = new Concatenator().concatenate(imgDiffusArray, false);
+
+                    // Save diffus image
+                    pml.saveDiffusImage(pmlPopList, imgDiffusArray, outDirResults+rootName+"_Diffuse.tif");
+                    // Save images objects
+                    ImagePlus dotsBin = pml.saveImageObjects(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName);
                     
                     
                     /** Do Tracking
@@ -187,7 +189,7 @@ public class PML_LiveCells implements PlugIn {
                     for (int i = 0; i < nucPop.getNbObjects(); i++) {
                         Object3D nucObj = nucPop.getObject(i);
                         double nucVol = nucObj.getVolumeUnit();
-                        Objects3DPopulation pmlPop = plmPopList.get(i);
+                        Objects3DPopulation pmlPop = pmlPopList.get(i);
                         int pmlDots = pmlPop.getNbObjects();
                         double pmlVolMean = pml.getPMLVolume(pmlPop).getMean();
                        double pmlVolStd = pml.getPMLVolume(pmlPop).getStandardDeviation();
