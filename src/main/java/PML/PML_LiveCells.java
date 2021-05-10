@@ -174,15 +174,9 @@ public class PML_LiveCells implements PlugIn {
                    
                     pml.saveDiffusImage(pmlPopList, nucPop, imgDiffusList, outDirResults+rootName+"nuc_"+nucIndex+"_Diffuse.tif");
                     pml.saveImageObjects(pmlPopList, nucPop, imgDiffusList, outDirResults+rootName+"nuc_"+nucIndex+"_Objects.tif");
+                      
                     
-                    
-                    /** Do Tracking
-                        double meanVol = pml.getPMLVolume(pmlPop).getMean();
-                        meanVol /= nucPop.getNbObjects();
-                        double meanRad = Math.pow(3/(4*Math.PI)*meanVol, 1.0/3.0);
-                        IJ.run(imgPML, "TrackMate", "use_gui=false " + "save_to=["+outDirResults+rootName+"nuc_"+nucIndex+"_trackmateSaved.xml] " + "export_to=["+outDirResults+rootName+"nuc_"+nucIndex+"_trackmateExport.xml]" + " display_results=true " + "radius="+meanRad+" " + "threshold=50.1 " + "subpixel=false " + "median=false " + "channel=1 " + "max_frame_gap=0" );
-             */
-                    
+                    double meanVol = 0.0;
                     // find parameters
                     for (int i = 0; i < nucPop.getNbObjects(); i++) {
                         Object3D nucObj = nucPop.getObject(i);
@@ -190,6 +184,7 @@ public class PML_LiveCells implements PlugIn {
                         Objects3DPopulation pmlPop = plmPopList.get(i);
                         int pmlDots = pmlPop.getNbObjects();
                         double pmlVolMean = pml.getPMLVolume(pmlPop).getMean();
+                        meanVol += pmlVolMean;        
                        double pmlVolStd = pml.getPMLVolume(pmlPop).getStandardDeviation();
                         double pmlVolTotal = pml.getPMLVolume(pmlPop).getSum();
                         double minDistCenterMean = pmlPop.distancesAllClosestCenter().getMean(); 
@@ -199,6 +194,15 @@ public class PML_LiveCells implements PlugIn {
                         outPutResults.flush();
                     }
                     
+                    // Do Tracking
+                    IJ.showStatus("Track PMLs");
+                    meanVol /= nucPop.getNbObjects();
+                    double meanRad = Math.pow(3/(4*Math.PI)*meanVol, 1.0/3.0);
+                    TrackMater track = new TrackMater();
+                    track.setDetectorParameters(meanRad, 100);
+                    System.out.println("Mean radius "+meanRad);
+                    track.run(binPML, outDirResults+rootName+"nuc_"+nucIndex+"_trackmateSaved.xml", outDirResults+rootName+"nuc_"+nucIndex+"_trackmateExport.xml", outDirResults+rootName+"nuc_"+nucIndex+"_spotsStats.csv");
+                                 
                     }
             }
             IJ.showStatus("Process done"); 
