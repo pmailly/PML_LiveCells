@@ -52,9 +52,9 @@ import org.apache.commons.io.FilenameUtils;
 public class PML_Tools {
    
     // min nucleus volume in mic^3
-    public double minNuc = 5000;
+    public double minNuc = 500;
     // max nucleus volume in micron^3
-    public double maxNuc = 30000;
+    public double maxNuc = 5000;
     
     // min volume in pixels^3 for dots
     public double minPML = 0.05;
@@ -284,8 +284,8 @@ public class PML_Tools {
         }
         ImagePlus imgStack = new ImagePlus("Nucleus", stack);
         imgStack.setCalibration(imgNuc.getCalibration());
-        //imgStack.show();
-        //new WaitForUserDialog("test").show();
+//        imgStack.show();
+//        new WaitForUserDialog("test").show();
         Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(imgStack).getObjectsWithinVolume(minNuc, maxNuc, true));
         nucPop.removeObjectsTouchingBorders(imgStack, false);
         //nucPop.updateNamesAndValues();
@@ -417,34 +417,20 @@ public class PML_Tools {
             // labelsObject(pmlObj, imhObjects.getImagePlus(), o, 255);
             }
             imhObjects.getImagePlus().setCalibration(cal);
-            imhObjects.getImagePlus().resetDisplayRange();
-            
+            imhObjects.getImagePlus().setSlice(imhObjects.getImagePlus().getNSlices()/2);
+            IJ.resetMinAndMax(imhObjects.getImagePlus());
             hyperBin[i] = imhObjects.getImagePlus();
         }
        
        ImagePlus hyperRes = new Concatenator().concatenate(hyperBin, false);
-       hyperRes.show();
+       //hyperRes.show();
         // save image for objects population
         FileSaver ImgObjectsFile = new FileSaver(hyperRes);
         ImgObjectsFile.saveAsTiff(pathName);
         return hyperRes;
     }
     
-                        
-    // write object labels
-    public void labelsObject (Object3D obj, ImagePlus img, int number, int color) {
-        Font tagFont = new Font("SansSerif", Font.PLAIN, 24);
-        int[] box = obj.getBoundingBox();
-        int z = (int)obj.getCenterZ();
-        int x = box[0] - 2;
-        int y = box[2] - 2;
-        img.setSlice(z+1);
-        ImageProcessor ip = img.getProcessor();
-        ip.setFont(tagFont);
-        ip.setColor(color);
-        ip.drawString(Integer.toString(number+1), x, y);
-        img.updateAndDraw();    
-    }
+ 
 
     /**
      * Create diffuse PML image
@@ -464,14 +450,11 @@ public class PML_Tools {
             Object3DVoxels pmlDilatedObj = pmlObj.getDilatedObject(dilate, dilate, dilate);
             pmlDilatedObj.draw(imhDotsDiffuse, 0);
         }
-        ImagePlus imgColor = imhDotsDiffuse.getImagePlus();
-        IJ.run(imgColor, "RGB Color", "");
-        //drawCountours(nucObj, imgColor, Color.white);
-        
+        ImagePlus imgDiffuse = imhDotsDiffuse.getImagePlus();
         // Save diffus
-        FileSaver imgDiffus = new FileSaver(imgColor);
+        FileSaver imgDiffus = new FileSaver(imgDiffuse);
         imgDiffus.saveAsTiff(pathName);
-        closeImages(imgColor);
+        closeImages(imgDiffuse);
         imhDotsDiffuse.closeImagePlus();
     }
            
@@ -501,28 +484,6 @@ public class PML_Tools {
         return(water.getWatershedImage3D().getImagePlus());
     }
     
-
-      /*
-    Draw countours of objects
-    */
-    public void drawCountours(Object3D obj, ImagePlus img, Color col) {
-        ImagePlus imgMask = IJ.createImage("mask", img.getWidth(), img.getHeight(), img.getNSlices(), 8);
-        img.show();
-        for (int z = obj.getZmin(); z < obj.getZmax(); z++) {
-            imgMask.setZ(z+1);
-            ImageProcessor ip = imgMask.getProcessor();
-            ByteProcessor bp = new ByteProcessor(ip, true);
-            Object3D_IJUtils.draw(obj, bp, z, 255);
-            ImagePlus maskPlus = new ImagePlus("mask " + z, bp);
-            maskPlus.getProcessor().setAutoThreshold(AutoThresholder.Method.Default, true);
-            IJ.run(maskPlus, "Create Selection", "");
-            Roi roi = maskPlus.getRoi();
-            img.setZ(z+1);
-            img.getProcessor().setColor(col);
-            img.getProcessor().drawRoi(roi);
-        }   
-        closeImages(imgMask);
-    }
     
     /**
      * Get total pml volume

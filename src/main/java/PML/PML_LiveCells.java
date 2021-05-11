@@ -176,8 +176,8 @@ public class PML_LiveCells implements PlugIn {
                     // Save diffus image
                     //pml.saveDiffusImage(pmlPopList, imgDiffusArray, outDirResults+rootName+"_Diffuse.tif");
                     // Save images objects
-                     pml.saveImageObjects(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName+"_Objects.tif", true);
-                     ImagePlus dotsBin = pml.saveImageObjects(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName+"_PMLs.tif", false);
+                     pml.saveImageObjects(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName+"_Objects-"+nucIndex+".tif", true);
+                     ImagePlus dotsBin = pml.saveImageObjects(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName+"_PMLs-"+nucIndex+".tif", false);
 
                     
                     double meanVol = 0.0;

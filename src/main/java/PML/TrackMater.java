@@ -39,7 +39,7 @@ import net.imglib2.util.ValuePair;
 public class TrackMater extends TrackMatePlugIn_ {
  
     private double radius;
-    private double threshold;
+    private double threshold = 1;
     private boolean subpixel = true;
     private boolean median = true;
     private Logger logger = new LogRecorder( Logger.DEFAULT_LOGGER );
@@ -70,20 +70,19 @@ public class TrackMater extends TrackMatePlugIn_ {
         settings.trackerSettings = settings.trackerFactory.getDefaultSettings();
         
         // Set-up detector
-        settings.detectorSettings.put( "radius", radius );
-        settings.detectorSettings.put( "threshold", threshold );
-        settings.detectorSettings.put( "subpixel", subpixel );
-        settings.detectorSettings.put( "median", median );
-        settings.detectorSettings.put( "channel", 1 );
+        settings.detectorSettings.put( "RADIUS", radius );
+        settings.detectorSettings.put( "THRESHOLD", threshold );
+        settings.detectorSettings.put( "DO_SUBPIXEL_LOCALIZATION", subpixel );
+        settings.detectorSettings.put( "DO_MEDIAN_FILTERING", median );
+        settings.detectorSettings.put( "TARGET_CHANNEL", 0 );
         
         // Set-up tracker
-        //settings.trackerSettings.put("max_distance", 1);
-        settings.trackerSettings.replace("max_frame_gap", 0);
-        settings.trackerSettings.replace("max_gap_distance", 1);
-     
-        trackmate.getSettings().trackerSettings.replace("max_distance", 1);
-        Set keys = settings.trackerSettings.keySet();
-        System.out.println(keys.toString());
+        settings.trackerSettings.put("LINKING_MAX_DISTANCE", 1.0);
+        settings.trackerSettings.put("MAX_FRAME_GAP", 0);
+        settings.trackerSettings.put("GAP_CLOSING_MAX_DISTANCE", 1.0);
+
+//        Set keys = settings.trackerSettings.keySet();
+//        System.out.println(keys.toString());
         
         // Run trackMate with the settings
         final String welcomeMessage = TrackMate.PLUGIN_NAME_STR + " v" + TrackMate.PLUGIN_NAME_VERSION + " started on:\n" + TMUtils.getCurrentTimeString() + '\n';
