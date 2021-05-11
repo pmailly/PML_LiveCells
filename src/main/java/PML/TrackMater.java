@@ -36,7 +36,6 @@ public class TrackMater extends TrackMatePlugIn_ {
     private final boolean subpixel = true;
     private final boolean median = true;
     private Logger logger;
-    private String logs;
     
     public void setDetectorParameters(double rad, double thres)
     {
@@ -79,7 +78,6 @@ public class TrackMater extends TrackMatePlugIn_ {
         
         // Run trackMate with the settings
         final String welcomeMessage = TrackMate.PLUGIN_NAME_STR + " v" + TrackMate.PLUGIN_NAME_VERSION + " started on:\n" + TMUtils.getCurrentTimeString() + '\n';
-        logs = welcomeMessage;
         if ( !trackmate.checkInput() || !trackmate.process() )
         {
                 IJ.error( "Error while performing tracking:\n" + trackmate.getErrorMessage() );
@@ -91,7 +89,7 @@ public class TrackMater extends TrackMatePlugIn_ {
         final File save_path = new File( save_path_str );
         final TmXmlWriter writer = new TmXmlWriter( save_path, logger );
 
-        writer.appendLog( logs.toString() );
+        writer.appendLog( welcomeMessage );
         writer.appendModel( trackmate.getModel() );
         writer.appendSettings( trackmate.getSettings() );
         try
