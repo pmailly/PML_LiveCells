@@ -10,6 +10,7 @@ import ij.gui.Roi;
 import ij.io.FileSaver;
 import ij.measure.Calibration;
 import ij.plugin.Concatenator;
+import ij.plugin.Duplicator;
 import ij.plugin.GaussianBlur3D;
 import ij.plugin.ZProjector;
 import ij.process.AutoThresholder;
@@ -337,7 +338,35 @@ public class PML_Tools {
      * @param img channel
      * @return dots population
      */
-    public Objects3DPopulation findDots(ImagePlus img, Object3D nucObj) {
+    public Objects3DPopulation findDotsLoG(ImagePlus img, Object3D nucObj) {
+        ImagePlus imgLaplacien = new Duplicator().run(img); 
+        IJ.run(imgLaplacien, "Laplacian of Gaussian", "sigma="+radius+" scale_normalised negate stack");
+        imgLaplacien.setSlice(imgLaplacien.getNSlices()/2);
+        IJ.setAutoThreshold(imgLaplacien, "Otsu dark");
+        Prefs.blackBackground = false;
+        IJ.run(imgLaplacien, "Convert to Mask", "method=Default background=Default");
+        Objects3DPopulation pmlPop = new Objects3DPopulation(getPopFromImage(imgLaplacien).getObjectsWithinVolume(minPML, maxPML, true));
+        for ( int i = 0; i < pmlPop.getNbObjects(); i++)
+        {
+            Object3D obj = pmlPop.getObject(i);
+            if ( !obj.hasOneVoxelColoc(nucObj) )
+            {
+                pmlPop.removeObject(i);
+                i--;
+            }
+            
+        }
+        closeImages(imgLaplacien);
+      
+        return(pmlPop);
+    } 
+    
+    /** 
+     * Find dots
+     * @param img channel
+     * @return dots population
+     */
+    public Objects3DPopulation findDotsDoG(ImagePlus img, Object3D nucObj) {
         ClearCLBuffer imgCL = clij2.push(img);
         //ClearCLBuffer imgCLMed = clij2.create(imgCL);
         //clij2.mean3DBox(imgCL, imgCLMed, 1, 1, 1);
