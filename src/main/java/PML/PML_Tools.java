@@ -400,7 +400,7 @@ public class PML_Tools {
     /**
      * Save image objects
      */
-    public ImagePlus saveImageObjects(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, String pathName, boolean nuc) {
+    public ImagePlus saveImageObjects(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, String pathName) {
         ImagePlus[] hyperBin = new ImagePlus[imgArray.length];
        for (int i=0; i<imgArray.length; i++)
        {
@@ -408,7 +408,7 @@ public class PML_Tools {
            
            // image PML at time point i
            ImageHandler imhObjects = ImageHandler.wrap(img).createSameDimensions();
-            if (nuc) nucPop.getObject(i).draw(imhObjects, 64);
+            nucPop.getObject(i).draw(imhObjects, 64);
             Objects3DPopulation pmlPop = pmlPopList.get(i);
             for (int o = 0; o < pmlPop.getNbObjects(); o++) 
             {
@@ -428,6 +428,36 @@ public class PML_Tools {
         FileSaver ImgObjectsFile = new FileSaver(hyperRes);
         ImgObjectsFile.saveAsTiff(pathName);
         return hyperRes;
+    }
+    
+     /**
+     * Save image objects
+     */
+    public ImagePlus saveImagePMLs(Objects3DPopulation nucPop, ImagePlus[] imgArray, String pathName) {
+       int[] bb =  {10000,0,10000,0,10000,0};
+       for (int i=0; i<imgArray.length; i++)
+       {
+           Object3D nuc = nucPop.getObject(i);
+           int[] boundingBox = nuc.getBoundingBox();
+           for ( int j = 0; j < 6; j+=2) 
+           {
+               if ( boundingBox[j] < bb[j]) bb[j] = boundingBox[j];
+           }
+           for ( int j = 1; j < 6; j+=2) 
+           {
+               if ( boundingBox[j] > bb[j]) bb[j] = boundingBox[j];
+           }
+        }
+        ImagePlus hyperPML = new Concatenator().concatenate(imgArray, false);
+        Roi roi = new Roi(bb[0], bb[2], bb[1]-bb[0], bb[3]-bb[2]);
+        hyperPML.setRoi(roi);
+        hyperPML.crop();  
+       
+       //hyperRes.show();
+        // save image for objects population
+        FileSaver ImgObjectsFile = new FileSaver(hyperPML);
+        ImgObjectsFile.saveAsTiff(pathName);
+        return hyperPML;
     }
     
  

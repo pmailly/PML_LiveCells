@@ -176,8 +176,10 @@ public class PML_LiveCells implements PlugIn {
                     // Save diffus image
                     //pml.saveDiffusImage(pmlPopList, imgDiffusArray, outDirResults+rootName+"_Diffuse.tif");
                     // Save images objects
-                     pml.saveImageObjects(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName+"_Objects-"+nucIndex+".tif", true);
-                     ImagePlus dotsBin = pml.saveImageObjects(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName+"_PMLs-"+nucIndex+".tif", false);
+                     pml.saveImageObjects(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName+"_Objects-"+nucIndex+".tif");
+                     ImagePlus dotBin = pml.saveImagePMLs(nucPop, imgDiffusArray, outDirResults+rootName+"_PMLs-"+nucIndex+".tif");
+                                          
+//ImagePlus dotsBin = pml.saveImageObjects(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName+"_PMLs-"+nucIndex+".tif", false);
 
                     
                     double meanVol = 0.0;
@@ -203,9 +205,10 @@ public class PML_LiveCells implements PlugIn {
                     meanVol /= nucPop.getNbObjects();
                     double meanRad = Math.pow(3/(4*Math.PI)*meanVol, 1.0/3.0);
                     TrackMater track = new TrackMater();
-                    track.setDetectorParameters(meanRad, 100);
+                    meanRad = 0.75;
+                    track.setDetectorParameters(meanRad, 30);
                     System.out.println("Mean radius "+meanRad);
-                    track.run(dotsBin, outDirResults+rootName+"nuc_"+nucIndex+"_trackmateSaved.xml", outDirResults+rootName+"nuc_"+nucIndex+"_trackmateExport.xml", outDirResults+rootName+"nuc_"+nucIndex+"_spotsStats.csv");
+                    track.run(dotBin, outDirResults+rootName+"nuc_"+nucIndex+"_trackmateSaved.xml", outDirResults+rootName+"nuc_"+nucIndex+"_trackmateExport.xml", outDirResults+rootName+"nuc_"+nucIndex+"_spotsStats.csv", outDirResults, rootName+"_PMLs-"+nucIndex+".tif");
                                  
                     }
             }

@@ -14,6 +14,7 @@ import fiji.plugin.trackmate.action.ExportAllSpotsStatsAction;
 import fiji.plugin.trackmate.action.ExportStatsToIJAction;
 import fiji.plugin.trackmate.action.ExportTracksToXML;
 import fiji.plugin.trackmate.detection.DogDetectorFactory;
+import fiji.plugin.trackmate.detection.LogDetectorFactory;
 import fiji.plugin.trackmate.features.edges.EdgeAnalyzer;
 import fiji.plugin.trackmate.features.spot.SpotAnalyzerFactory;
 import fiji.plugin.trackmate.features.track.TrackAnalyzer;
@@ -46,15 +47,17 @@ public class TrackMater extends TrackMatePlugIn_ {
     
     public void setDetectorParameters(double rad, double thres)
     {
-        radius = rad;
         threshold = thres;
+        radius = rad;
     }
     
-    public void run(ImagePlus imp, String savefile, String exportfile, String statfile)
+    public void run(ImagePlus imp, String savefile, String exportfile, String statfile, String path, String imgname)
     {
        //Initialisation TrackMate.
         logger = new LogRecorder( Logger.IJ_LOGGER );
         settings = createSettings( imp );
+        settings.imageFileName = imgname;
+        settings.imageFolder = path;
 	model = createModel();
 	model.setLogger( logger );
 	trackmate = createTrackMate();
@@ -62,7 +65,7 @@ public class TrackMater extends TrackMatePlugIn_ {
     
        // Configure default settings.
         // Default detector.
-        settings.detectorFactory = new DogDetectorFactory< >();
+        settings.detectorFactory = new LogDetectorFactory();
         settings.detectorSettings = settings.detectorFactory.getDefaultSettings();
 
         // Default tracker.
