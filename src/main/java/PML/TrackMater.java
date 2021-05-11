@@ -10,10 +10,7 @@ import fiji.plugin.trackmate.SelectionModel;
 import fiji.plugin.trackmate.Settings;
 import fiji.plugin.trackmate.TrackMate;
 import fiji.plugin.trackmate.TrackMatePlugIn_;
-import fiji.plugin.trackmate.action.ExportAllSpotsStatsAction;
-import fiji.plugin.trackmate.action.ExportStatsToIJAction;
 import fiji.plugin.trackmate.action.ExportTracksToXML;
-import fiji.plugin.trackmate.detection.DogDetectorFactory;
 import fiji.plugin.trackmate.detection.LogDetectorFactory;
 import fiji.plugin.trackmate.features.edges.EdgeAnalyzer;
 import fiji.plugin.trackmate.features.spot.SpotAnalyzerFactory;
@@ -29,21 +26,17 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.measure.ResultsTable;
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import net.imglib2.util.ValuePair;
 
 
 public class TrackMater extends TrackMatePlugIn_ {
  
     private double radius;
     private double threshold = 1;
-    private boolean subpixel = true;
-    private boolean median = true;
-    private Logger logger = new LogRecorder( Logger.DEFAULT_LOGGER );
+    private final boolean subpixel = true;
+    private final boolean median = true;
+    private Logger logger;
+    private String logs;
     
     public void setDetectorParameters(double rad, double thres)
     {
@@ -54,7 +47,7 @@ public class TrackMater extends TrackMatePlugIn_ {
     public void run(ImagePlus imp, String savefile, String exportfile, String statfile, String path, String imgname)
     {
        //Initialisation TrackMate.
-        logger = new LogRecorder( Logger.IJ_LOGGER );
+        logger = new LogRecorder( Logger.VOID_LOGGER );
         settings = createSettings( imp );
         settings.imageFileName = imgname;
         settings.imageFolder = path;
@@ -83,16 +76,13 @@ public class TrackMater extends TrackMatePlugIn_ {
         settings.trackerSettings.put("LINKING_MAX_DISTANCE", 1.0);
         settings.trackerSettings.put("MAX_FRAME_GAP", 0);
         settings.trackerSettings.put("GAP_CLOSING_MAX_DISTANCE", 1.0);
-
-//        Set keys = settings.trackerSettings.keySet();
-//        System.out.println(keys.toString());
         
         // Run trackMate with the settings
         final String welcomeMessage = TrackMate.PLUGIN_NAME_STR + " v" + TrackMate.PLUGIN_NAME_VERSION + " started on:\n" + TMUtils.getCurrentTimeString() + '\n';
-	logger.log( welcomeMessage );
+        logs = welcomeMessage;
         if ( !trackmate.checkInput() || !trackmate.process() )
         {
-                logger.error( "Error while performing tracking:\n" + trackmate.getErrorMessage() );
+                IJ.error( "Error while performing tracking:\n" + trackmate.getErrorMessage() );
                 return;
         }
         
@@ -101,22 +91,16 @@ public class TrackMater extends TrackMatePlugIn_ {
         final File save_path = new File( save_path_str );
         final TmXmlWriter writer = new TmXmlWriter( save_path, logger );
 
-        writer.appendLog( logger.toString() );
+        writer.appendLog( logs.toString() );
         writer.appendModel( trackmate.getModel() );
         writer.appendSettings( trackmate.getSettings() );
         try
         {
                 writer.writeToFile();
-                logger.log( "Data saved to: " + save_path.toString() + '\n' );
         }
-        catch ( final FileNotFoundException e )
+        catch ( final Exception e )
         {
-                logger.error( "When saving to " + save_path + ", file not found:\n" + e.getMessage() + '\n' );
-                return;
-        }
-        catch ( final IOException e )
-        {
-                logger.error( "When saving to " + save_path + ", Input/Output error:\n" + e.getMessage() + '\n' );
+                IJ.error( "When saving to " + save_path + ", file not found:\n" + e.getMessage() + '\n' );
                 return;
         }
         
@@ -126,27 +110,21 @@ public class TrackMater extends TrackMatePlugIn_ {
         try
         {
                 ExportTracksToXML.export( model, settings, export_path );
-                logger.log( "Data exported to: " + export_path.toString() + '\n' );
         }
-        catch ( final FileNotFoundException e )
+        catch ( final Exception e )
         {
-                logger.error( "When exporting to " + export_path + ", file not found:\n" + e.getMessage() + '\n' );
+                IJ.error( "When exporting to " + export_path + ", file not found:\n" + e.getMessage() + '\n' );
                 return;
         }
-        catch ( final IOException e )
-        {
-                logger.error( "When exporting to " + export_path + ", Input/Output error:\n" + e.getMessage() + '\n' );
-                return;
-        }
+      
         
          // Export statistics file ?        
         final SelectionModel selectionModel = new SelectionModel( model );
-        ExportStatsToIJAction stat = new ExportStatsToIJAction(selectionModel);
+        ExportStats stat = new ExportStats(selectionModel);
         stat.execute(trackmate);
         ResultsTable statTable = stat.getSpotTable();
         statTable.save(statfile);
-        logger.log( "Stat data saved in: " + statfile + '\n' );
-        
+        IJ.showStatus("Tracking done "+imgname);
 
     }
     
