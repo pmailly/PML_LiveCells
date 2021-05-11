@@ -63,6 +63,10 @@ public class PML_LiveCells implements PlugIn {
                 IJ.showMessage(" Pluging canceled");
                 return;
             }
+            if (!pml.checkInstalledModules()) {
+                IJ.showMessage(" Pluging canceled");
+                return;
+            }
             imageDir = pml.dialog();
             if (imageDir == null) {
                 return;

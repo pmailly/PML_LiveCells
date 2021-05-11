@@ -90,7 +90,7 @@ public class PML_Tools {
             return false;
         }
         try {
-            loader.loadClass("mcib3d.geom");
+            loader.loadClass("mcib3d.geom.Object3D");
         } catch (ClassNotFoundException e) {
             IJ.log("3D ImageJ Suite not installed, please install from update site");
             return false;
@@ -240,6 +240,7 @@ public class PML_Tools {
         gd.addMessage("Trackmate parameters", Font.getFont("Monospace"), Color.blue);
         gd.addNumericField("PML dots radius (µm) :", radius, 3);
         gd.addNumericField("PML threshold        :", threshold, 3);
+        gd.setInsets​(-225, 400, 0);
         gd.addImage(icon);
         gd.showDialog();
         dir = gd.getNextString()+File.separator;
