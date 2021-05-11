@@ -34,7 +34,7 @@ import java.util.List;
 public class TrackMater extends TrackMatePlugIn_ {
     
     private PML_Tools pml = new PML_Tools();
-    
+   
     private boolean subpixel = true;
     private boolean median = true;
     private Logger logger = new LogRecorder( Logger.DEFAULT_LOGGER );

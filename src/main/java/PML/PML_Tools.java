@@ -1,21 +1,18 @@
 package PML;
 
 
-import fiji.plugin.trackmate.gui.TrackMateWizard;
 import fiji.util.gui.GenericDialogPlus;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.Prefs;
 import ij.gui.Roi;
-import ij.gui.WaitForUserDialog;
 import ij.io.FileSaver;
 import ij.measure.Calibration;
 import ij.plugin.Concatenator;
 import ij.plugin.GaussianBlur3D;
 import ij.plugin.ZProjector;
 import ij.process.AutoThresholder;
-import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
 import java.awt.Color;
 import java.awt.Font;
@@ -25,7 +22,6 @@ import java.util.Collections;
 import javax.swing.ImageIcon;
 import mcib3d.geom.Object3D;
 import mcib3d.geom.Object3DVoxels;
-import mcib3d.geom.Object3D_IJUtils;
 import mcib3d.geom.Objects3DPopulation;
 import mcib3d.image3d.ImageFloat;
 import mcib3d.image3d.ImageHandler;
@@ -78,7 +74,7 @@ public class PML_Tools {
     
     public CLIJ2 clij2 = CLIJ2.getInstance();
     
-    //public static final ImagePlus ICON = new ImagePlus(PML_LiveCells.class.getResource( "Orion_icon.png" ).toString());
+    public final ImageIcon icon = new ImageIcon(this.getClass().getResource("/Orion_icon.png"));
     
      /**
      * check  installed modules
@@ -244,7 +240,7 @@ public class PML_Tools {
         gd.addMessage("Trackmate parameters", Font.getFont("Monospace"), Color.blue);
         gd.addNumericField("PML dots radius (µm) :", radius, 3);
         gd.addNumericField("PML threshold        :", threshold, 3);
-        //gd.addImage(ICON);
+        gd.addImage(icon);
         gd.showDialog();
         dir = gd.getNextString()+File.separator;
         minPML = gd.getNextNumber();
