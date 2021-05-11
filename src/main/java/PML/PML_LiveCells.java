@@ -208,7 +208,7 @@ public class PML_LiveCells implements PlugIn {
                     meanRad = 0.75;
                     track.setDetectorParameters(meanRad, 30);
                     System.out.println("Mean radius "+meanRad);
-                    track.run(dotBin, outDirResults+rootName+"nuc_"+nucIndex+"_trackmateSaved.xml", outDirResults+rootName+"nuc_"+nucIndex+"_trackmateExport.xml", outDirResults+rootName+"nuc_"+nucIndex+"_spotsStats.csv", outDirResults, rootName+"_PMLs-"+nucIndex+".tif");
+                    track.run(dotBin, outDirResults+rootName+"nuc_"+nucIndex+"_trackmateSaved.xml", outDirResults+rootName+"nuc_"+nucIndex+"_trackmateExport.xml", outDirResults+rootName+"nuc_"+nucIndex+"_trackmateSpotsStats.csv", outDirResults, rootName+"_PMLs-"+nucIndex+".tif");
                                  
                     }
             }
