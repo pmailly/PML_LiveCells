@@ -1,6 +1,7 @@
 package PML;
 
 
+import fiji.plugin.trackmate.gui.TrackMateWizard;
 import fiji.util.gui.GenericDialogPlus;
 import ij.IJ;
 import ij.ImagePlus;
@@ -21,6 +22,7 @@ import java.awt.Font;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
+import javax.swing.ImageIcon;
 import mcib3d.geom.Object3D;
 import mcib3d.geom.Object3DVoxels;
 import mcib3d.geom.Object3D_IJUtils;
@@ -70,7 +72,13 @@ public class PML_Tools {
     // pml dot dilatation factor for diffuse mask
     private float dilate = 0.5f;
     
+    // Trackmate dialog parameters
+    public double radius = 0.75;
+    public double threshold = 35;
+    
     public CLIJ2 clij2 = CLIJ2.getInstance();
+    
+    //public static final ImagePlus ICON = new ImagePlus(PML_LiveCells.class.getResource( "Orion_icon.png" ).toString());
     
      /**
      * check  installed modules
@@ -225,18 +233,25 @@ public class PML_Tools {
      * @return 
      */
     public String dialog() {
+        
         String dir = "";
         GenericDialogPlus gd = new GenericDialogPlus("Parameters");
         gd.addDirectoryField("Choose Directory Containing Image Files : ", "");
-        gd.addNumericField("Min PML size (µm3): ", minPML, 3);
-        gd.addNumericField("Max PML size (µm3): ", maxPML, 3);
-        gd.addMessage("Diffuse analyze");
-        gd.addNumericField("PML dilatation factor in µm :", dilate, 3);
+        gd.addNumericField("Min PML size (µm3) : ", minPML, 3);
+        gd.addNumericField("Max PML size (µm3) : ", maxPML, 3);
+        gd.addMessage("Diffuse analyze", Font.getFont("Monospace"), Color.blue);
+        gd.addNumericField("PML dilatation factor (µm) :", dilate, 3);
+        gd.addMessage("Trackmate parameters", Font.getFont("Monospace"), Color.blue);
+        gd.addNumericField("PML dots radius (µm) :", radius, 3);
+        gd.addNumericField("PML threshold        :", threshold, 3);
+        //gd.addImage(ICON);
         gd.showDialog();
         dir = gd.getNextString()+File.separator;
         minPML = gd.getNextNumber();
         maxPML = gd.getNextNumber();
         dilate = (float)gd.getNextNumber();
+        radius = gd.getNextNumber();
+        threshold = gd.getNextNumber();
         return(dir);
     }
     
@@ -450,9 +465,7 @@ public class PML_Tools {
         }
         ImagePlus hyperPML = new Concatenator().concatenate(imgArray, false);
         Roi roi = new Roi(bb[0], bb[2], bb[1]-bb[0], bb[3]-bb[2]);
-        hyperPML.setRoi(roi);
-        hyperPML.crop();  
-       
+        hyperPML.setRoi(roi);       
        //hyperRes.show();
         // save image for objects population
         FileSaver ImgObjectsFile = new FileSaver(hyperPML);
@@ -465,27 +478,29 @@ public class PML_Tools {
     /**
      * Create diffuse PML image
      * Fill zero in pml dots
-     * @param pmlPop
-     * @param nucObj
-     * @param imgDotsOrg
+     * @param pmlPopList
+     * @param imgArray
+     * @param pathName
 
      */
-    public void saveDiffusImage(Objects3DPopulation pmlPop, Object3D nucObj, ImagePlus imgDotsOrg, String pathName) {
-        ImageHandler imhDotsDiffuse = ImageHandler.wrap(imgDotsOrg.duplicate());
-       
-        //float dilate = 1.5f;
-        for (int p = 0; p < pmlPop.getNbObjects(); p++) {
-            Object3D pmlObj = pmlPop.getObject(p);
-            // dilate 
-            Object3DVoxels pmlDilatedObj = pmlObj.getDilatedObject(dilate, dilate, dilate);
-            pmlDilatedObj.draw(imhDotsDiffuse, 0);
+    public void saveDiffusImage(ArrayList<Objects3DPopulation> pmlPopList, ImagePlus[] imgArray, String pathName) {
+        ImagePlus[] hyperDifuse = new ImagePlus[imgArray.length];
+        for (int i = 0; i < imgArray.length; i++) {
+           ImageHandler imh = ImageHandler.wrap(imgArray[i]);
+           Objects3DPopulation pmlPop = pmlPopList.get(i);
+           for (int j = 0; j < pmlPop.getNbObjects(); j++) {
+               Object3D pmlObj = pmlPop.getObject(j);
+               // dilate 
+                Object3DVoxels pmlDilatedObj = pmlObj.getDilatedObject(dilate, dilate, dilate);
+                pmlDilatedObj.draw(imh, 0);
+            }
+           hyperDifuse[i] = imh.getImagePlus(); 
         }
-        ImagePlus imgDiffuse = imhDotsDiffuse.getImagePlus();
+        ImagePlus hyperDifuseTime = new Concatenator().concatenate(hyperDifuse, true);
         // Save diffus
-        FileSaver imgDiffus = new FileSaver(imgDiffuse);
+        FileSaver imgDiffus = new FileSaver(hyperDifuseTime);
         imgDiffus.saveAsTiff(pathName);
-        closeImages(imgDiffuse);
-        imhDotsDiffuse.closeImagePlus();
+        closeImages(hyperDifuseTime);
     }
            
     
