@@ -170,17 +170,13 @@ public class PML_LiveCells implements PlugIn {
                         imgDiffusArray[t] = imgPML;
                     }
 
-                    // create hyperstack
-                    //ImagePlus imgHyper = new Concatenator().concatenate(imgDiffusArray, true);
-
                     // Save diffus image
-                    //pml.saveDiffusImage(pmlPopList, imgDiffusArray, outDirResults+rootName+"_Diffuse.tif");
+                    pml.saveDiffusImage(pmlPopList, imgDiffusArray, outDirResults+rootName+"_Diffuse-"+nucIndex+".tif");
                     // Save images objects
                      pml.saveImageObjects(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName+"_Objects-"+nucIndex+".tif");
                      ImagePlus dotBin = pml.saveImagePMLs(nucPop, imgDiffusArray, outDirResults+rootName+"_PMLs-"+nucIndex+".tif");
-                                          
-//ImagePlus dotsBin = pml.saveImageObjects(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName+"_PMLs-"+nucIndex+".tif", false);
-
+                    
+                     
                     
                     double meanVol = 0.0;
                     // find parameters
@@ -202,14 +198,8 @@ public class PML_LiveCells implements PlugIn {
                     
                     // Do Tracking
                     IJ.showStatus("Track PMLs");
-                    meanVol /= nucPop.getNbObjects();
-                    double meanRad = Math.pow(3/(4*Math.PI)*meanVol, 1.0/3.0);
                     TrackMater track = new TrackMater();
-                    meanRad = 0.75;
-                    track.setDetectorParameters(meanRad, 30);
-                    System.out.println("Mean radius "+meanRad);
                     track.run(dotBin, outDirResults+rootName+"nuc_"+nucIndex+"_trackmateSaved.xml", outDirResults+rootName+"nuc_"+nucIndex+"_trackmateExport.xml", outDirResults+rootName+"nuc_"+nucIndex+"_trackmateSpotsStats.csv", outDirResults, rootName+"_PMLs-"+nucIndex+".tif");
-                                 
                     }
             }
             IJ.showStatus("Process done"); 
