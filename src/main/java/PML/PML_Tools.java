@@ -58,7 +58,7 @@ public class PML_Tools {
     public double maxNuc = 5000;
     
     // min volume in pixels^3 for dots
-    public double minPML = 0.05;
+    public double minPML = 0.02;
     // max volume in pixels^3 for dots
     public double maxPML = 60;
     private Calibration cal = new Calibration(); 
@@ -304,7 +304,7 @@ public class PML_Tools {
             IJ.showStatus("Finding nucleus section "+i+" / "+imgNuc.getStackSize());
             imgNuc.setZ(i);
             imgNuc.updateAndDraw();
-            IJ.run(imgNuc, "Nuclei Outline", "blur=20 blur2=30 threshold_method=Li outlier_radius=0 outlier_threshold=0 max_nucleus_size=500"
+            IJ.run(imgNuc, "Nuclei Outline", "blur=30 blur2=20 threshold_method=Li outlier_radius=0 outlier_threshold=0 max_nucleus_size=500"
                     + " min_nucleus_size=10 erosion=0 expansion_inner=0 expansion=0 results_overlay");
             imgNuc.setZ(1);
             imgNuc.updateAndDraw();
@@ -354,11 +354,13 @@ public class PML_Tools {
     /** 
      * Find dots with LoG
      * @param img channel
+     * @param nucObj
      * @return dots population
      */
     public Objects3DPopulation findDotsLoG(ImagePlus img, Object3D nucObj) {
         ImagePlus imgLaplacien = new Duplicator().run(img); 
-        IJ.run(imgLaplacien, "Laplacian of Gaussian", "sigma="+radius+" scale_normalised negate stack");
+        double sigma = radius/(3*img.getCalibration().pixelWidth);
+        IJ.run(imgLaplacien, "Laplacian of Gaussian", "sigma="+sigma+" negate stack");
         imgLaplacien.setSlice(imgLaplacien.getNSlices()/2);
         IJ.setAutoThreshold(imgLaplacien, thMet+" dark");
         Prefs.blackBackground = false;
@@ -386,9 +388,9 @@ public class PML_Tools {
      */
     public Objects3DPopulation findDotsDoG(ImagePlus img, Object3D nucObj) {
         ImagePlus imgDOG = new Duplicator().run(img);
-        double sig1 = radius/4;
-        double sig2 = radius;
-        IJ.run("Difference of Gaussians", "  sigma1="+sig1+" sigma2="+sig2+" scaled stack");
+        double sig1 = radius;
+        double sig2 = radius/3;
+        IJ.run(imgDOG,"Difference of Gaussians", "  sigma1="+sig1+" sigma2="+sig2+" scaled stack");
         imgDOG.setSlice(imgDOG.getNSlices()/2);
         IJ.setAutoThreshold(imgDOG, thMet+" dark");
         Prefs.blackBackground = false;
@@ -416,7 +418,7 @@ public class PML_Tools {
      */
     public Objects3DPopulation findDotsDoGCLIJ(ImagePlus img, Object3D nucObj) {
         ClearCLBuffer imgCL = clij2.push(img);
-        double sig1 = radius/4*img.getCalibration().pixelWidth;
+        double sig1 = radius/(3*img.getCalibration().pixelWidth);
         double sig2 = radius/img.getCalibration().pixelWidth;
         ClearCLBuffer imgCLDOG = DOG(imgCL, sig1, sig2);
         clij2.release(imgCL);

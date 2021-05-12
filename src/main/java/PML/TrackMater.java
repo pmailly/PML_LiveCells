@@ -56,7 +56,7 @@ public class TrackMater extends TrackMatePlugIn_ {
     
        // Configure default settings.
         // Default detector.
-        if (new PML_Tools().trackMate_Detector_Method.equals("DoG"))
+        if (new PML_Tools().trackMate_Detector_Method.equals("LoG"))
             settings.detectorFactory = new LogDetectorFactory();
         else
             settings.detectorFactory = new DogDetectorFactory();
