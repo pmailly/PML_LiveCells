@@ -165,9 +165,13 @@ public class PML_LiveCells implements PlugIn {
                         options.setCBegin(0, 1);
                         options.setCEnd(0, 1);
                         ImagePlus imgPML = BF.openImagePlus(options)[0];
+                        Objects3DPopulation pmlPop = new Objects3DPopulation();
                         // apply image drift correction
                         if ( t>0) trans.get(t-1).doTransformation(imgPML);
-                        Objects3DPopulation pmlPop = pml.findDots(imgPML, nucObj);
+                        if (pml.trackMate_Detector_Method.equals("DoG"))
+                            pmlPop = pml.findDotsDoG(imgPML, nucObj);
+                        else
+                            pmlPop = pml.findDotsLoG(imgPML, nucObj);
                         pmlPopList.add(pmlPop);
                         pmlDiffusInt.add(pml.pmlDiffus(pmlPop, nucObj, imgPML));
                         pmlInt.add(pml.getPMLIntensity(pmlPop, imgPML));

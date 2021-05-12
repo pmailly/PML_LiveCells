@@ -12,6 +12,7 @@ import ij.measure.Calibration;
 import ij.plugin.Concatenator;
 import ij.plugin.Duplicator;
 import ij.plugin.GaussianBlur3D;
+import ij.plugin.Thresholder;
 import ij.plugin.ZProjector;
 import ij.process.AutoThresholder;
 import ij.process.ImageProcessor;
@@ -21,6 +22,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import javax.swing.ImageIcon;
+import loci.formats.in.TrestleReader;
 import mcib3d.geom.Object3D;
 import mcib3d.geom.Object3DVoxels;
 import mcib3d.geom.Objects3DPopulation;
@@ -61,17 +63,16 @@ public class PML_Tools {
     public double maxPML = 60;
     private Calibration cal = new Calibration(); 
     
-    // dots dog paramaters
-    private int sig1 = 2;
-    private int sig2 = 4;
+
     // dots threshold method
-    private String thMet = "Moments";
+    private String thMet = "Otsu";
     // pml dot dilatation factor for diffuse mask
     private float dilate = 0.5f;
     
     // Trackmate dialog parameters
     public double radius = 0.75;
     public double threshold = 35;
+    public String trackMate_Detector_Method = "LoG";
     
     public CLIJ2 clij2 = CLIJ2.getInstance();
     
@@ -94,6 +95,18 @@ public class PML_Tools {
             loader.loadClass("mcib3d.geom.Object3D");
         } catch (ClassNotFoundException e) {
             IJ.log("3D ImageJ Suite not installed, please install from update site");
+            return false;
+        }
+        try {
+            loader.loadClass("uk.ac.sussex.gdsc.utils.DifferenceOfGaussians_PlugIn");
+        } catch (ClassNotFoundException e) {
+            IJ.log("GDSC Suite not installed, please install from update site");
+            return false;
+        }
+        try {
+            loader.loadClass("TurboReg_");
+        } catch (ClassNotFoundException e) {
+            IJ.log("TurboReg not installed, please install from http://bigwww.epfl.ch/thevenaz/turboreg/");
             return false;
         }
         return true;
@@ -230,24 +243,29 @@ public class PML_Tools {
      * @return 
      */
     public String dialog() {
-        
+        String[] thMethods = new Thresholder().methods;
+        String[] TrackMate_Detector = {"DoG", "LoG"};
         String dir = "";
         GenericDialogPlus gd = new GenericDialogPlus("Parameters");
         gd.addDirectoryField("Choose Directory Containing Image Files : ", "");
         gd.addNumericField("Min PML size (µm3) : ", minPML, 3);
         gd.addNumericField("Max PML size (µm3) : ", maxPML, 3);
         gd.addMessage("Diffuse analyze", Font.getFont("Monospace"), Color.blue);
+        gd.addChoice("Dots threshold method : ", thMethods, thMet);
         gd.addNumericField("PML dilatation factor (µm) :", dilate, 3);
         gd.addMessage("Trackmate parameters", Font.getFont("Monospace"), Color.blue);
+        gd.addChoice("Dots detector method :", TrackMate_Detector, TrackMate_Detector[1]);
         gd.addNumericField("PML dots radius (µm) :", radius, 3);
         gd.addNumericField("PML threshold        :", threshold, 3);
-        gd.setInsets​(-225, 400, 0);
+        gd.setInsets​(-280, 400, 0);
         gd.addImage(icon);
         gd.showDialog();
         dir = gd.getNextString()+File.separator;
         minPML = gd.getNextNumber();
         maxPML = gd.getNextNumber();
+        thMet = gd.getNextChoice();
         dilate = (float)gd.getNextNumber();
+        trackMate_Detector_Method = gd.getNextChoice();
         radius = gd.getNextNumber();
         threshold = gd.getNextNumber();
         return(dir);
@@ -334,7 +352,7 @@ public class PML_Tools {
     }
     
     /** 
-     * Find dots
+     * Find dots with LoG
      * @param img channel
      * @return dots population
      */
@@ -342,9 +360,9 @@ public class PML_Tools {
         ImagePlus imgLaplacien = new Duplicator().run(img); 
         IJ.run(imgLaplacien, "Laplacian of Gaussian", "sigma="+radius+" scale_normalised negate stack");
         imgLaplacien.setSlice(imgLaplacien.getNSlices()/2);
-        IJ.setAutoThreshold(imgLaplacien, "Otsu dark");
+        IJ.setAutoThreshold(imgLaplacien, thMet+" dark");
         Prefs.blackBackground = false;
-        IJ.run(imgLaplacien, "Convert to Mask", "method=Default background=Default");
+        IJ.run(imgLaplacien, "Convert to Mask", "method="+thMet+" background=Default");
         Objects3DPopulation pmlPop = new Objects3DPopulation(getPopFromImage(imgLaplacien).getObjectsWithinVolume(minPML, maxPML, true));
         for ( int i = 0; i < pmlPop.getNbObjects(); i++)
         {
@@ -362,17 +380,44 @@ public class PML_Tools {
     } 
     
     /** 
-     * Find dots
+     * Find dots with DOG method
      * @param img channel
      * @return dots population
      */
     public Objects3DPopulation findDotsDoG(ImagePlus img, Object3D nucObj) {
+        ImagePlus imgDOG = new Duplicator().run(img);
+        double sig1 = radius/4;
+        double sig2 = radius;
+        IJ.run("Difference of Gaussians", "  sigma1="+sig1+" sigma2="+sig2+" scaled stack");
+        imgDOG.setSlice(imgDOG.getNSlices()/2);
+        IJ.setAutoThreshold(imgDOG, thMet+" dark");
+        Prefs.blackBackground = false;
+        IJ.run(imgDOG, "Convert to Mask", "method="+thMet+" background=Default");
+        Objects3DPopulation pmlPop = new Objects3DPopulation(getPopFromImage(imgDOG).getObjectsWithinVolume(minPML, maxPML, true));
+        for ( int i = 0; i < pmlPop.getNbObjects(); i++)
+        {
+            Object3D obj = pmlPop.getObject(i);
+            if ( !obj.hasOneVoxelColoc(nucObj) )
+            {
+                pmlPop.removeObject(i);
+                i--;
+            }
+            
+        }
+        closeImages(imgDOG);
+      
+        return(pmlPop);
+    } 
+    
+    /** 
+     * Find dots with DOG CLIJ Method
+     * @param img channel
+     * @return dots population
+     */
+    public Objects3DPopulation findDotsDoGCLIJ(ImagePlus img, Object3D nucObj) {
         ClearCLBuffer imgCL = clij2.push(img);
-        //ClearCLBuffer imgCLMed = clij2.create(imgCL);
-        //clij2.mean3DBox(imgCL, imgCLMed, 1, 1, 1);
-        //clij2.copy(imgCLMed, imgCL);
-        //clij2.release(imgCLMed);
-        //clij2.release(imgCL);
+        double sig1 = radius/4*img.getCalibration().pixelWidth;
+        double sig2 = radius/img.getCalibration().pixelWidth;
         ClearCLBuffer imgCLDOG = DOG(imgCL, sig1, sig2);
         clij2.release(imgCL);
         ImagePlus imgBin = clij2.pull(threshold(imgCLDOG, thMet, false));

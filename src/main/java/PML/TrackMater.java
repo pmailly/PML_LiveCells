@@ -11,6 +11,7 @@ import fiji.plugin.trackmate.Settings;
 import fiji.plugin.trackmate.TrackMate;
 import fiji.plugin.trackmate.TrackMatePlugIn_;
 import fiji.plugin.trackmate.action.ExportTracksToXML;
+import fiji.plugin.trackmate.detection.DogDetectorFactory;
 import fiji.plugin.trackmate.detection.LogDetectorFactory;
 import fiji.plugin.trackmate.features.edges.EdgeAnalyzer;
 import fiji.plugin.trackmate.features.spot.SpotAnalyzerFactory;
@@ -55,7 +56,11 @@ public class TrackMater extends TrackMatePlugIn_ {
     
        // Configure default settings.
         // Default detector.
-        settings.detectorFactory = new LogDetectorFactory();
+        if (new PML_Tools().trackMate_Detector_Method.equals("DoG"))
+            settings.detectorFactory = new LogDetectorFactory();
+        else
+            settings.detectorFactory = new DogDetectorFactory();
+        
         settings.detectorSettings = settings.detectorFactory.getDefaultSettings();
 
         // Default tracker.
