@@ -19,9 +19,16 @@ import ij.process.ImageProcessor;
 import java.awt.Color;
 import java.awt.Font;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import javax.swing.ImageIcon;
+import loci.common.services.DependencyException;
+import loci.common.services.ServiceException;
+import loci.common.services.ServiceFactory;
+import loci.formats.FormatException;
 import loci.formats.in.TrestleReader;
 import mcib3d.geom.Object3D;
 import mcib3d.geom.Object3DVoxels;
@@ -35,6 +42,8 @@ import mcib3d.image3d.processing.FastFilters3D;
 import mcib3d.image3d.regionGrowing.Watershed3D;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import loci.formats.meta.IMetadata;
+import loci.formats.services.OMEXMLService;
+import loci.plugins.util.ImageProcessorReader;
 import mpicbg.ij.integral.RemoveOutliers;
 import net.haesleinhuepf.clij.clearcl.ClearCLBuffer;
 import net.haesleinhuepf.clij2.CLIJ2;
@@ -132,7 +141,51 @@ public class PML_Tools {
         Collections.sort(images);
         return(images);
     }
-        
+       
+     /**
+     * Find channels name
+     * @param imageName
+     * @return 
+     * @throws loci.common.services.DependencyException
+     * @throws loci.common.services.ServiceException
+     * @throws loci.formats.FormatException
+     * @throws java.io.IOException
+     */
+    public static List<String> findChannels (String imageName) throws DependencyException, ServiceException, FormatException, IOException {
+        List<String> channels = new ArrayList<>();
+        // create OME-XML metadata store of the latest schema version
+        ServiceFactory factory;
+        factory = new ServiceFactory();
+        OMEXMLService service = factory.getInstance(OMEXMLService.class);
+        IMetadata meta = service.createOMEXMLMetadata();
+        ImageProcessorReader reader = new ImageProcessorReader();
+        reader.setMetadataStore(meta);
+        reader.setId(imageName);
+        int chs = reader.getSizeC();
+        String imageExt =  FilenameUtils.getExtension(imageName);
+        switch (imageExt) {
+            case "nd" :
+                String channelsID = meta.getImageName(0);
+                channels = Arrays.asList(channelsID.replace("_", "-").split("/"));
+                break;
+            case "lif" :
+                String[] ch = new String[chs];
+                if (chs > 1) {
+                    for (int n = 0; n < chs; n++) 
+                        if (meta.getChannelExcitationWavelength(0, n) == null)
+                            channels.add(Integer.toString(n));
+                        else 
+                            channels.add(meta.getChannelExcitationWavelength(0, n).value().toString());
+                }
+                break;
+            default :
+                chs = reader.getSizeC();
+                for (int n = 0; n < chs; n++)
+                    channels.add(Integer.toString(n));
+        }
+        return(channels);         
+    }
+    
     /**
      * Find image calibration
      * @param meta

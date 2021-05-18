@@ -71,7 +71,7 @@ public class PML_LiveCells implements PlugIn {
             if (imageDir == null) {
                 return;
             }
-            String fileExt = "nd";
+            String fileExt = "czi";
             File inDir = new File(imageDir);
             ArrayList<String> imageFiles = pml.findImages(imageDir, fileExt);
             if (imageFiles == null) {
@@ -102,20 +102,20 @@ public class PML_LiveCells implements PlugIn {
                 }
                 
                 // Find ROI file
-                String roi_file  = (new File(imageDir+rootName+".zip").exists()) ? imageDir+rootName+".zip" :  ((new File(imageDir+rootName+".roi").exists()) ? imageDir+rootName+".roi" : null);
-                System.out.println(roi_file);
-                if (roi_file == null) {
-                    IJ.showStatus("No ROI file found !") ;
-                    return;
-                }
+//                String roi_file  = (new File(imageDir+rootName+".zip").exists()) ? imageDir+rootName+".zip" :  ((new File(imageDir+rootName+".roi").exists()) ? imageDir+rootName+".roi" : null);
+//                System.out.println(roi_file);
+//                if (roi_file == null) {
+//                    IJ.showStatus("No ROI file found !") ;
+//                    return;
+//                }
                 
                 // find rois
-                RoiManager rm = new RoiManager(false);
-                rm.runCommand("Open", roi_file);
-                Roi[] rois = rm.getRoisAsArray();
+//                RoiManager rm = new RoiManager(false);
+//                rm.runCommand("Open", roi_file);
+//                Roi[] rois = rm.getRoisAsArray();
                 
                 // For each roi open cropped image
-                for (Roi roi : rois) {
+                //for (Roi roi : rois) {
                     nucIndex++;
                     
                     // Write headers results for results file{
@@ -125,11 +125,11 @@ public class PML_LiveCells implements PlugIn {
                             + "\tPML dots STD IntDensity\tPML dot STD Volume\tPML Sum Vol\tPML dot Mean center-center distance\tPML dot SD center-center distance\n");
                     outPutResults.flush();
                     
-                    Rectangle rectRoi = roi.getBounds();
+                    //Rectangle rectRoi = roi.getBounds();
                     ImporterOptions options = new ImporterOptions();
                     options.setId(f);
-                    options.setCrop(true);
-                    options.setCropRegion(0, new Region(rectRoi.x, rectRoi.y, rectRoi.width, rectRoi.height));
+                    //options.setCrop(true);
+                    //options.setCropRegion(0, new Region(rectRoi.x, rectRoi.y, rectRoi.width, rectRoi.height));
                     options.setCBegin(0, 0);
                     options.setCEnd(0, 0);
                     options.setColorMode(ImporterOptions.COLOR_MODE_GRAYSCALE);
@@ -144,7 +144,8 @@ public class PML_LiveCells implements PlugIn {
                     ArrayList<Double> pmlDiffusInt = new ArrayList<>();
                     ArrayList<DescriptiveStatistics> pmlInt = new ArrayList<>();
                     pml.closeImages(imgNuc);
-                    int time = reader.getSizeT();
+                    //int time = reader.getSizeT();
+                    int time = 3;
                     // for each time find nucleus, plml
                     ImagePlus[] imgDiffusArray = new ImagePlus[time];
                     for (int t = 0; t < time; t++) {
@@ -172,6 +173,7 @@ public class PML_LiveCells implements PlugIn {
                             pmlPop = pml.findDotsDoG(imgPML, nucObj);
                         else
                             pmlPop = pml.findDotsLoG(imgPML, nucObj);
+                        //System.out.println(pmlPop.getNbObjects()+" pml found");
                         pmlPopList.add(pmlPop);
                         pmlDiffusInt.add(pml.pmlDiffus(pmlPop, nucObj, imgPML));
                         pmlInt.add(pml.getPMLIntensity(pmlPop, imgPML));
@@ -209,7 +211,7 @@ public class PML_LiveCells implements PlugIn {
                     TrackMater track = new TrackMater();
                     track.run(dotBin, outDirResults+rootName+"nuc_"+nucIndex+"_trackmateSaved.xml", outDirResults+rootName+"nuc_"+nucIndex+"_trackmateExport.xml", outDirResults+rootName+"nuc_"+nucIndex+"_trackmateSpotsStats.csv", outDirResults, rootName+"_PMLs-"+nucIndex+".tif");
                     }
-            }
+            //}
             IJ.showStatus("Process done"); 
         } catch (DependencyException ex) {
             Logger.getLogger(PML_LiveCells.class.getName()).log(Level.SEVERE, null, ex);
