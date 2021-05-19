@@ -29,6 +29,7 @@ import ij.plugin.frame.RoiManager;
 import java.awt.Rectangle;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -39,6 +40,7 @@ import loci.formats.FormatException;
 import loci.plugins.BF;
 import loci.plugins.in.ImporterOptions;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 
 
@@ -67,16 +69,17 @@ public class PML_LiveCells implements PlugIn {
                 IJ.showMessage(" Pluging canceled");
                 return;
             }
-            imageDir = pml.dialog();
+            imageDir = IJ.getDirectory("Images folder");
             if (imageDir == null) {
                 return;
             }
-            String fileExt = "czi";
             File inDir = new File(imageDir);
+            String fileExt = pml.findImageType(inDir);
             ArrayList<String> imageFiles = pml.findImages(imageDir, fileExt);
             if (imageFiles == null) {
                 return;
             }
+            
             // create output folder
             outDirResults = imageDir + "Results"+ File.separator;
             File outDir = new File(outDirResults);
@@ -91,31 +94,43 @@ public class PML_LiveCells implements PlugIn {
             IMetadata meta = service.createOMEXMLMetadata();
             ImageProcessorReader reader = new ImageProcessorReader();
             reader.setMetadataStore(meta);
-            int series = 0;
             int nucIndex = 0;
+            // Find channel names , calibration
+            reader.setId(imageFiles.get(0));
+            int[] channelIndex = new int[reader.getSizeC()];
+            cal = pml.findImageCalib(meta);
+            String[] chsName = pml.findChannels(imageFiles.get(0), meta, reader);
+            channelIndex = pml.dialog(chsName);
+            if (channelIndex == null)
+                return;
             for (String f : imageFiles) {
                 String rootName = FilenameUtils.getBaseName(f);
                 reader.setId(f);
+                int series = reader.getSeries();
+                int width = meta.getPixelsSizeX(series).getValue();
+                int height = meta.getPixelsSizeY(series).getValue();
                 reader.setSeries(series);
-                if (nucIndex == 0) {
-                    cal = pml.findImageCalib(meta);
+                boolean roiFile = true;
+                // Test if ROI file exist
+                String roi_file  = (new File(imageDir+rootName+".zip").exists()) ? imageDir+rootName+".zip" :  ((new File(imageDir+rootName+".roi").exists()) ? imageDir+rootName+".roi" : null);
+                if (roi_file == null) {
+                    IJ.showStatus("No ROI file found !") ;
+                    roiFile = false;
+                }
+                List<Roi> rois = new ArrayList<>();
+                if (roiFile) {
+                    // find rois
+                    RoiManager rm = new RoiManager(false);
+                    rm.runCommand("Open", roi_file);
+                    rois = Arrays.asList(rm.getRoisAsArray());
+                }
+                // define roi as all image
+                else {
+                    rois.add(new Roi(0, 0, width, height));
                 }
                 
-                // Find ROI file
-//                String roi_file  = (new File(imageDir+rootName+".zip").exists()) ? imageDir+rootName+".zip" :  ((new File(imageDir+rootName+".roi").exists()) ? imageDir+rootName+".roi" : null);
-//                System.out.println(roi_file);
-//                if (roi_file == null) {
-//                    IJ.showStatus("No ROI file found !") ;
-//                    return;
-//                }
-                
-                // find rois
-//                RoiManager rm = new RoiManager(false);
-//                rm.runCommand("Open", roi_file);
-//                Roi[] rois = rm.getRoisAsArray();
-                
                 // For each roi open cropped image
-                //for (Roi roi : rois) {
+                for (Roi roi : rois) {
                     nucIndex++;
                     
                     // Write headers results for results file{
@@ -125,13 +140,15 @@ public class PML_LiveCells implements PlugIn {
                             + "\tPML dots STD IntDensity\tPML dot STD Volume\tPML Sum Vol\tPML dot Mean center-center distance\tPML dot SD center-center distance\n");
                     outPutResults.flush();
                     
-                    //Rectangle rectRoi = roi.getBounds();
+                    Rectangle rectRoi = roi.getBounds();
                     ImporterOptions options = new ImporterOptions();
                     options.setId(f);
-                    //options.setCrop(true);
-                    //options.setCropRegion(0, new Region(rectRoi.x, rectRoi.y, rectRoi.width, rectRoi.height));
-                    options.setCBegin(0, 0);
-                    options.setCEnd(0, 0);
+                    options.setCrop(true);
+                    options.setCropRegion(0, new Region(rectRoi.x, rectRoi.y, rectRoi.width, rectRoi.height));
+                    // open Dapi channel
+                    
+                    options.setCBegin(0, channelIndex[0]);
+                    options.setCEnd(0, channelIndex[0]);
                     options.setColorMode(ImporterOptions.COLOR_MODE_GRAYSCALE);
                     options.setQuiet(true);
                     
@@ -145,26 +162,25 @@ public class PML_LiveCells implements PlugIn {
                     ArrayList<DescriptiveStatistics> pmlInt = new ArrayList<>();
                     pml.closeImages(imgNuc);
                     //int time = reader.getSizeT();
-                    int time = 3;
+                    int time = 10;
                     // for each time find nucleus, plml
                     ImagePlus[] imgDiffusArray = new ImagePlus[time];
                     for (int t = 0; t < time; t++) {
+                        IJ.showStatus("Reading time " + t + "/"+time);
                         options.setTBegin(0, t);
                         options.setTEnd(0, t);
-                        options.setCBegin(0, 0);
-                        options.setCEnd(0, 0);
+                        options.setCBegin(0, channelIndex[0]);
+                        options.setCEnd(0, channelIndex[0]);
                         // Open nucleus channel
                         imgNuc = BF.openImagePlus(options)[0];
-//                        imgNuc.show();
-//                        new WaitForUserDialog(f).show();
                         // apply image drift correction
                         if (t>0) trans.get(t-1).doTransformation(imgNuc);
                         // find nuc object
                         Object3D nucObj = pml.findnucleus(imgNuc);
                         nucPop.addObject(nucObj);
                         // Open pml channel
-                        options.setCBegin(0, 1);
-                        options.setCEnd(0, 1);
+                        options.setCBegin(0, channelIndex[1]);
+                        options.setCEnd(0, channelIndex[1]);
                         ImagePlus imgPML = BF.openImagePlus(options)[0];
                         Objects3DPopulation pmlPop = new Objects3DPopulation();
                         // apply image drift correction
@@ -204,13 +220,13 @@ public class PML_LiveCells implements PlugIn {
                         outPutResults.write(i+"\t"+nucVol+"\t"+pmlPop.getNbObjects()+"\t"+pmlDiffusInt.get(i)+"\t"+pmlInt.get(i).getMean()+"\t"
                                 +pmlInt.get(i).getStandardDeviation()+"\t"+pmlVolMean+"\t"+pmlVolStd+"\t"+pmlVolTotal+"\t"+minDistCenterMean+"\t"+minDistCenterSD+"\n");
                         outPutResults.flush();
-                    }
-                    
+                    }                    
                     // Do Tracking
                     IJ.showStatus("Track PMLs");
                     TrackMater track = new TrackMater();
                     track.run(dotBin, outDirResults+rootName+"nuc_"+nucIndex+"_trackmateSaved.xml", outDirResults+rootName+"nuc_"+nucIndex+"_trackmateExport.xml", outDirResults+rootName+"nuc_"+nucIndex+"_trackmateSpotsStats.csv", outDirResults, rootName+"_PMLs-"+nucIndex+".tif");
                     }
+            }
             //}
             IJ.showStatus("Process done"); 
         } catch (DependencyException ex) {

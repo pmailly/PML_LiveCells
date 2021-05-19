@@ -7,6 +7,7 @@ import ij.ImagePlus;
 import ij.ImageStack;
 import ij.Prefs;
 import ij.gui.Roi;
+import ij.gui.WaitForUserDialog;
 import ij.io.FileSaver;
 import ij.measure.Calibration;
 import ij.plugin.Concatenator;
@@ -23,6 +24,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import static java.util.Collections.list;
 import java.util.List;
 import javax.swing.ImageIcon;
 import loci.common.services.DependencyException;
@@ -48,6 +50,7 @@ import mpicbg.ij.integral.RemoveOutliers;
 import net.haesleinhuepf.clij.clearcl.ClearCLBuffer;
 import net.haesleinhuepf.clij2.CLIJ2;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.lang.ArrayUtils;
         
  /*
  * To change this license header, choose License Headers in Project Properties.
@@ -124,7 +127,7 @@ public class PML_Tools {
     /**
      * Find images in folder
      */
-    public ArrayList findImages(String imagesFolder, String imageExt) {
+    public ArrayList<String> findImages(String imagesFolder, String imageExt) {
         File inDir = new File(imagesFolder);
         String[] files = inDir.list();
         if (files == null) {
@@ -151,37 +154,42 @@ public class PML_Tools {
      * @throws loci.formats.FormatException
      * @throws java.io.IOException
      */
-    public static List<String> findChannels (String imageName) throws DependencyException, ServiceException, FormatException, IOException {
-        List<String> channels = new ArrayList<>();
-        // create OME-XML metadata store of the latest schema version
-        ServiceFactory factory;
-        factory = new ServiceFactory();
-        OMEXMLService service = factory.getInstance(OMEXMLService.class);
-        IMetadata meta = service.createOMEXMLMetadata();
-        ImageProcessorReader reader = new ImageProcessorReader();
-        reader.setMetadataStore(meta);
-        reader.setId(imageName);
+    public static String[] findChannels (String imageName, IMetadata meta, ImageProcessorReader reader) throws DependencyException, ServiceException, FormatException, IOException {
         int chs = reader.getSizeC();
+        String[] channels = new String[chs];
         String imageExt =  FilenameUtils.getExtension(imageName);
         switch (imageExt) {
             case "nd" :
-                String channelsID = meta.getImageName(0);
-                channels = Arrays.asList(channelsID.replace("_", "-").split("/"));
+                for (int n = 0; n < chs; n++) 
+                    if (meta.getChannelID(0, n) == null)
+                        channels[n] = Integer.toString(n);
+                    else 
+                        channels[n] = meta.getChannelName(0, n).toString();
                 break;
             case "lif" :
-                String[] ch = new String[chs];
-                if (chs > 1) {
-                    for (int n = 0; n < chs; n++) 
-                        if (meta.getChannelExcitationWavelength(0, n) == null)
-                            channels.add(Integer.toString(n));
-                        else 
-                            channels.add(meta.getChannelExcitationWavelength(0, n).value().toString());
-                }
+                for (int n = 0; n < chs; n++) 
+                    if (meta.getChannelID(0, n) == null)
+                        channels[n] = Integer.toString(n);
+                    else 
+                        channels[n] = meta.getChannelName(0, n).toString();
                 break;
+            case "czi" :
+                for (int n = 0; n < chs; n++) 
+                    if (meta.getChannelID(0, n) == null)
+                        channels[n] = Integer.toString(n);
+                    else 
+                        channels[n] = meta.getChannelName(0, n).toString();
+                break;
+            case "ics" :
+                for (int n = 0; n < chs; n++) 
+                    if (meta.getChannelID(0, n) == null)
+                        channels[n] = Integer.toString(n);
+                    else 
+                        channels[n] = meta.getChannelExcitationWavelength(0, n).value().toString();
+                break;    
             default :
-                chs = reader.getSizeC();
                 for (int n = 0; n < chs; n++)
-                    channels.add(Integer.toString(n));
+                    channels[0] = Integer.toString(n);
         }
         return(channels);         
     }
@@ -289,18 +297,57 @@ public class PML_Tools {
             fillHole(imgCLBin);
         return(imgCLBin);
     }
-        
+    
+    /**
+     * Find image type
+     */
+    public String findImageType(File imagesFolder) {
+        String ext = "";
+        String[] files = imagesFolder.list();
+        for (String name : files) {
+            String fileExt = FilenameUtils.getExtension(name);
+            switch (fileExt) {
+                case "nd" :
+                   ext = fileExt;
+                   break;
+                case "czi" :
+                   ext = fileExt;
+                   break;
+                case "lif"  :
+                    ext = fileExt;
+                    break;
+                case "isc2" :
+                    ext = fileExt;
+                    break;
+                default :
+                   ext = fileExt;
+                   break; 
+            }
+        }
+        return(ext);
+    }
+    
+    
     /**
      * Dialog 
      * 
+     * @param channels
      * @return 
      */
-    public String dialog() {
+    public int[] dialog(String[] channels) {
         String[] thMethods = new Thresholder().methods;
         String[] TrackMate_Detector = {"DoG", "LoG"};
-        String dir = "";
+        String[] chNames = {"Nucleus", "PML"};
         GenericDialogPlus gd = new GenericDialogPlus("Parameters");
-        gd.addDirectoryField("Choose Directory Containing Image Files : ", "");
+        gd.setInsets​(0, 80, 0);
+        gd.addImage(icon);
+        gd.addMessage("Channels selection", Font.getFont("Monospace"), Color.blue);
+        int index = 0;
+        for (String chName : channels) {
+            gd.addChoice(chNames[index]+" : ", channels, channels[index]);
+            index++;
+        }
+        gd.addMessage("PML parameters", Font.getFont("Monospace"), Color.blue);
         gd.addNumericField("Min PML size (µm3) : ", minPML, 3);
         gd.addNumericField("Max PML size (µm3) : ", maxPML, 3);
         gd.addMessage("Diffuse analyze", Font.getFont("Monospace"), Color.blue);
@@ -310,10 +357,11 @@ public class PML_Tools {
         gd.addChoice("Dots detector method :", TrackMate_Detector, TrackMate_Detector[1]);
         gd.addNumericField("PML dots radius (µm) :", radius, 3);
         gd.addNumericField("PML threshold        :", threshold, 3);
-        gd.setInsets​(-280, 400, 0);
-        gd.addImage(icon);
         gd.showDialog();
-        dir = gd.getNextString()+File.separator;
+        int[] chChoices = new int[channels.length];
+        for (int n = 0; n < chChoices.length; n++) {
+            chChoices[n] = ArrayUtils.indexOf(channels, gd.getNextChoice());
+        }
         minPML = gd.getNextNumber();
         maxPML = gd.getNextNumber();
         thMet = gd.getNextChoice();
@@ -321,7 +369,9 @@ public class PML_Tools {
         trackMate_Detector_Method = gd.getNextChoice();
         radius = gd.getNextNumber();
         threshold = gd.getNextNumber();
-        return(dir);
+        if (gd.wasCanceled())
+                chChoices = null;
+        return(chChoices);
     }
     
     /**
@@ -368,8 +418,8 @@ public class PML_Tools {
         }
         ImagePlus imgStack = new ImagePlus("Nucleus", stack);
         imgStack.setCalibration(imgNuc.getCalibration());
-//        imgStack.show();
-//        new WaitForUserDialog("test").show();
+        //imgStack.show();
+        //new WaitForUserDialog("test").show();
         Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(imgStack).getObjectsWithinVolume(minNuc, maxNuc, true));
         nucPop.removeObjectsTouchingBorders(imgStack, false);
         //nucPop.updateNamesAndValues();
