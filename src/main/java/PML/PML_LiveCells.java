@@ -10,7 +10,6 @@ package PML;
 
 import ij.*;
 import ij.gui.Roi;
-import ij.gui.WaitForUserDialog;
 import ij.plugin.PlugIn;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -24,7 +23,6 @@ import loci.plugins.util.ImageProcessorReader;
 import mcib3d.geom.Objects3DPopulation;
 import mcib3d.geom.Object3D;
 import ij.measure.Calibration;
-import ij.plugin.Concatenator;
 import ij.plugin.frame.RoiManager;
 import java.awt.Rectangle;
 import java.io.IOException;
@@ -40,7 +38,6 @@ import loci.formats.FormatException;
 import loci.plugins.BF;
 import loci.plugins.in.ImporterOptions;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 
 
