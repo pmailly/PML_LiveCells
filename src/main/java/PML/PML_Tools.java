@@ -227,21 +227,17 @@ public class PML_Tools {
    
     
     
-     /**  
-     * median 3D box filter
+    /* Median filter 
      * Using CLIJ2
-     * @param imgCL
-     * @param sizeX
-     * @param sizeY
+     * @param ClearCLBuffer
+     * @param sizeXY
      * @param sizeZ
-     * @return imgOut
      */ 
-    public ClearCLBuffer medianFilter(ClearCLBuffer imgCL, double sizeX, double sizeY, double sizeZ) {
-        ClearCLBuffer imgIn = clij2.push(imgCL);
-        ClearCLBuffer imgOut = clij2.create(imgIn);
-        clij2.median3DBox(imgIn, imgOut, sizeX, sizeY, sizeZ);
+    public ClearCLBuffer median_filter(ClearCLBuffer  imgCL, double sizeXY, double sizeZ) {
+        ClearCLBuffer imgCLMed = clij2.create(imgCL);
+        clij2.mean3DBox(imgCL, imgCLMed, sizeXY, sizeXY, sizeZ);
         clij2.release(imgCL);
-        return(imgOut);
+        return(imgCLMed);
     }
     
     /**

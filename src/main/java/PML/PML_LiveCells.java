@@ -94,10 +94,9 @@ public class PML_LiveCells implements PlugIn {
             int nucIndex = 0;
             // Find channel names , calibration
             reader.setId(imageFiles.get(0));
-            int[] channelIndex = new int[reader.getSizeC()];
             cal = pml.findImageCalib(meta);
             String[] chsName = pml.findChannels(imageFiles.get(0), meta, reader);
-            channelIndex = pml.dialog(chsName);
+            int[] channelIndex = pml.dialog(chsName);
             if (channelIndex == null)
                 return;
             for (String f : imageFiles) {
