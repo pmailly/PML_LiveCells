@@ -171,7 +171,7 @@ public class PML_Tools {
                     if (meta.getChannelID(0, n) == null)
                         channels[n] = Integer.toString(n);
                     else 
-                        channels[n] = meta.getChannelName(0, n).toString();
+                        channels[n] = meta.getChannelFluor(0, n).toString();
                 break;
             case "ics" :
                 for (int n = 0; n < chs; n++) 
