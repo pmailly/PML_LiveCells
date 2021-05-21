@@ -42,7 +42,7 @@ public class TrackMater extends TrackMatePlugIn_ {
     
     
     
-    public void run(ImagePlus imp, String savefile, String exportfile, String statfile, String path, String imgname)
+    public void run(ImagePlus imp, String savefile, String exportfile, String statfile, String trackfile, String path, String imgname)
     {
        //Initialisation TrackMate.
         logger = new LogRecorder( Logger.VOID_LOGGER );
@@ -78,6 +78,10 @@ public class TrackMater extends TrackMatePlugIn_ {
         settings.trackerSettings.put("LINKING_MAX_DISTANCE", 1.0);
         settings.trackerSettings.put("MAX_FRAME_GAP", 0);
         settings.trackerSettings.put("GAP_CLOSING_MAX_DISTANCE", 1.0);
+        
+        settings.trackerSettings.put("ALLOW_TRACK_MERGING", true);
+        settings.trackerSettings.put("MERGING_MAX_DISTANCE", 5.0);
+        settings.trackerSettings.put("ALLOW_TRACK_SPLITTING", true);
         
         // Run trackMate with the settings
         final String welcomeMessage = TrackMate.PLUGIN_NAME_STR + " v" + TrackMate.PLUGIN_NAME_VERSION + " started on:\n" + TMUtils.getCurrentTimeString() + '\n';
@@ -125,6 +129,12 @@ public class TrackMater extends TrackMatePlugIn_ {
         stat.execute(trackmate);
         ResultsTable statTable = stat.getSpotTable();
         statTable.save(statfile);
+        
+        // Export fusion/splitting stats
+        ResultsTable trackTable = stat.getTrackTable();
+        trackTable.save(trackfile);
+        
+        
         IJ.showStatus("Tracking done "+imgname);
 
     }

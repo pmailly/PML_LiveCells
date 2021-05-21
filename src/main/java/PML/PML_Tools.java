@@ -7,6 +7,7 @@ import ij.ImagePlus;
 import ij.ImageStack;
 import ij.Prefs;
 import ij.gui.Roi;
+import ij.gui.WaitForUserDialog;
 import ij.io.FileSaver;
 import ij.measure.Calibration;
 import ij.plugin.Concatenator;
@@ -154,10 +155,12 @@ public class PML_Tools {
         switch (imageExt) {
             case "nd" :
                 for (int n = 0; n < chs; n++) 
+                {
                     if (meta.getChannelID(0, n) == null)
                         channels[n] = Integer.toString(n);
                     else 
                         channels[n] = meta.getChannelName(0, n).toString();
+                }
                 break;
             case "lif" :
                 for (int n = 0; n < chs; n++) 
@@ -297,17 +300,13 @@ public class PML_Tools {
             String fileExt = FilenameUtils.getExtension(name);
             switch (fileExt) {
                 case "nd" :
-                   ext = fileExt;
-                   break;
+                    return fileExt;
                 case "czi" :
-                   ext = fileExt;
-                   break;
+                  return fileExt;
                 case "lif"  :
-                    ext = fileExt;
-                    break;
+                    return fileExt;
                 case "isc2" :
-                    ext = fileExt;
-                    break;
+                   return fileExt;
                 default :
                    ext = fileExt;
                    break; 
@@ -392,11 +391,13 @@ public class PML_Tools {
     public Object3D findnucleus(ImagePlus imgNuc) {
         removeOutliers(imgNuc, 20, 20, 1);
         ImageStack stack = new ImageStack(imgNuc.getWidth(), imgNuc.getHeight());
+        //imgNuc.show();
+        //new WaitForUserDialog("test").show();
         for (int i = 1; i <= imgNuc.getStackSize(); i++) {
             IJ.showStatus("Finding nucleus section "+i+" / "+imgNuc.getStackSize());
             imgNuc.setZ(i);
             imgNuc.updateAndDraw();
-            IJ.run(imgNuc, "Nuclei Outline", "blur=30 blur2=20 threshold_method=Li outlier_radius=0 outlier_threshold=0 max_nucleus_size=500"
+            IJ.run(imgNuc, "Nuclei Outline", "blur=15 blur2=10 threshold_method=Li outlier_radius=0 outlier_threshold=0 max_nucleus_size=500"
                     + " min_nucleus_size=10 erosion=0 expansion_inner=0 expansion=0 results_overlay");
             imgNuc.setZ(1);
             imgNuc.updateAndDraw();
@@ -408,12 +409,17 @@ public class PML_Tools {
         ImagePlus imgStack = new ImagePlus("Nucleus", stack);
         imgStack.setCalibration(imgNuc.getCalibration());
         //imgStack.show();
+        ImagePlus water = WatershedSplit(imgStack, 4);
+        water.setCalibration(imgNuc.getCalibration());
+        //water.show();
         //new WaitForUserDialog("test").show();
-        Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(imgStack).getObjectsWithinVolume(minNuc, maxNuc, true));
-        nucPop.removeObjectsTouchingBorders(imgStack, false);
+        
+        Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(water).getObjectsWithinVolume(minNuc, maxNuc, true));
+        nucPop.removeObjectsTouchingBorders(water, false);
         //nucPop.updateNamesAndValues();
         Object3D nucObj = nucPop.getObject(0);
         closeImages(imgStack);
+        closeImages(water);
         return(nucObj);
     }
     

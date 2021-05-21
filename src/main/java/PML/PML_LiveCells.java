@@ -96,6 +96,7 @@ public class PML_LiveCells implements PlugIn {
             reader.setId(imageFiles.get(0));
             cal = pml.findImageCalib(meta);
             String[] chsName = pml.findChannels(imageFiles.get(0), meta, reader);
+            System.out.println(chsName[0]);
             int[] channelIndex = pml.dialog(chsName);
             if (channelIndex == null)
                 return;
@@ -158,7 +159,7 @@ public class PML_LiveCells implements PlugIn {
                     ArrayList<DescriptiveStatistics> pmlInt = new ArrayList<>();
                     pml.closeImages(imgNuc);
                     //int time = reader.getSizeT();
-                    int time = 10;
+                    int time = (reader.getSizeT() < 10 )? reader.getSizeT():10;
                     // for each time find nucleus, plml
                     ImagePlus[] imgDiffusArray = new ImagePlus[time];
                     for (int t = 0; t < time; t++) {
@@ -220,7 +221,8 @@ public class PML_LiveCells implements PlugIn {
                     // Do Tracking
                     IJ.showStatus("Track PMLs");
                     TrackMater track = new TrackMater();
-                    track.run(dotBin, outDirResults+rootName+"nuc_"+nucIndex+"_trackmateSaved.xml", outDirResults+rootName+"nuc_"+nucIndex+"_trackmateExport.xml", outDirResults+rootName+"nuc_"+nucIndex+"_trackmateSpotsStats.csv", outDirResults, rootName+"_PMLs-"+nucIndex+".tif");
+                    String resName = outDirResults+rootName+"nuc_"+nucIndex;
+                    track.run(dotBin, resName+"_trackmateSaved.xml", resName+"_trackmateExport.xml", resName+"_trackmateSpotsStats.csv", resName+"_trackmateTrackStats.csv", outDirResults, rootName+"_PMLs-"+nucIndex+".tif");
                     }
             }
             //}
