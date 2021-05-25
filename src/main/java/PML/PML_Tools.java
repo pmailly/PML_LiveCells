@@ -372,14 +372,14 @@ public class PML_Tools {
      * @return img
      */
     public ImagePlus removeOutliers(ImagePlus img, int radX, int radY, float factor) {
-        
-        for (int i = 0; i < img.getNSlices(); i++) {
-            img.setSlice(i);
-            ImageProcessor ip = img.getProcessor();
+        ImagePlus imgRemo = new Duplicator().run(img);
+        for (int i = 1; i <= imgRemo.getNSlices(); i++) {
+            imgRemo.setSlice(i);
+            ImageProcessor ip = imgRemo.getProcessor();
             RemoveOutliers removeOut = new RemoveOutliers(ip.convertToFloatProcessor());
             removeOut.removeOutliers(radX, radY, factor);
         }
-        return(img);
+        return(imgRemo);
     }
     
     
@@ -389,15 +389,14 @@ public class PML_Tools {
      * @return 
      */
     public Object3D findnucleus(ImagePlus imgNuc) {
-        removeOutliers(imgNuc, 20, 20, 1);
+        //ImagePlus img = removeOutliers(imgNuc, 20, 20, 1);
+        IJ.run(imgNuc, "Remove Outliers", "block_radius_x=40 block_radius_y=40 standard_deviations=1 stack");
         ImageStack stack = new ImageStack(imgNuc.getWidth(), imgNuc.getHeight());
-        //imgNuc.show();
-        //new WaitForUserDialog("test").show();
         for (int i = 1; i <= imgNuc.getStackSize(); i++) {
             IJ.showStatus("Finding nucleus section "+i+" / "+imgNuc.getStackSize());
             imgNuc.setZ(i);
             imgNuc.updateAndDraw();
-            IJ.run(imgNuc, "Nuclei Outline", "blur=15 blur2=10 threshold_method=Li outlier_radius=0 outlier_threshold=0 max_nucleus_size=500"
+            IJ.run(imgNuc, "Nuclei Outline", "blur=5 blur2=30 threshold_method=Li outlier_radius=0 outlier_threshold=0 max_nucleus_size=500"
                     + " min_nucleus_size=10 erosion=0 expansion_inner=0 expansion=0 results_overlay");
             imgNuc.setZ(1);
             imgNuc.updateAndDraw();
@@ -406,13 +405,11 @@ public class PML_Tools {
             ip.invertLut();
             stack.addSlice(ip);
         }
+
         ImagePlus imgStack = new ImagePlus("Nucleus", stack);
         imgStack.setCalibration(imgNuc.getCalibration());
-        //imgStack.show();
-        ImagePlus water = WatershedSplit(imgStack, 4);
+        ImagePlus water = WatershedSplit(imgStack, 10);
         water.setCalibration(imgNuc.getCalibration());
-        //water.show();
-        //new WaitForUserDialog("test").show();
         
         Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(water).getObjectsWithinVolume(minNuc, maxNuc, true));
         nucPop.removeObjectsTouchingBorders(water, false);
