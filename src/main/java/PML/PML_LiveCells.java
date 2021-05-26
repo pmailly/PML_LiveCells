@@ -96,8 +96,9 @@ public class PML_LiveCells implements PlugIn {
             reader.setId(imageFiles.get(0));
             cal = pml.findImageCalib(meta);
             String[] chsName = pml.findChannels(imageFiles.get(0), meta, reader);
-            System.out.println(chsName[0]);
+            //System.out.println(chsName[0]);
             int[] channelIndex = pml.dialog(chsName);
+            cal = pml.getCalib();
             if (channelIndex == null)
                 return;
             for (String f : imageFiles) {
@@ -170,6 +171,7 @@ public class PML_LiveCells implements PlugIn {
                         options.setCEnd(0, channelIndex[0]);
                         // Open nucleus channel
                         imgNuc = BF.openImagePlus(options)[0];
+                        imgNuc.setCalibration(cal);
                         // apply image drift correction
                         if (t>0) trans.get(t-1).doTransformation(imgNuc);
                         // find nuc object
@@ -179,6 +181,7 @@ public class PML_LiveCells implements PlugIn {
                         options.setCBegin(0, channelIndex[1]);
                         options.setCEnd(0, channelIndex[1]);
                         ImagePlus imgPML = BF.openImagePlus(options)[0];
+                        imgPML.setCalibration(cal);
                         Objects3DPopulation pmlPop = new Objects3DPopulation();
                         // apply image drift correction
                         if ( t>0) trans.get(t-1).doTransformation(imgPML);

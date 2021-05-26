@@ -17,6 +17,7 @@ import ij.plugin.Thresholder;
 import ij.plugin.ZProjector;
 import ij.process.AutoThresholder;
 import ij.process.ImageProcessor;
+import ij.process.ImageStatistics;
 import java.awt.Color;
 import java.awt.Font;
 import java.io.File;
@@ -45,6 +46,7 @@ import net.haesleinhuepf.clij.clearcl.ClearCLBuffer;
 import net.haesleinhuepf.clij2.CLIJ2;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.ArrayUtils;
+
         
  /*
  * To change this license header, choose License Headers in Project Properties.
@@ -209,6 +211,12 @@ public class PML_Tools {
         return(cal);
     }
     
+    public Calibration getCalib()
+    {
+        System.out.println("x cal = " +cal.pixelWidth+", z cal=" + cal.pixelDepth);
+        return cal;
+    }
+    
     
     /**
      *
@@ -345,6 +353,10 @@ public class PML_Tools {
         gd.addChoice("Dots detector method :", TrackMate_Detector, TrackMate_Detector[1]);
         gd.addNumericField("PML dots radius (µm) :", radius, 3);
         gd.addNumericField("PML threshold        :", threshold, 3);
+        gd.addMessage("Image calibration", Font.getFont("Monospace"), Color.blue);
+        gd.addNumericField("Calibration xy (µm)  :", cal.pixelWidth, 3);
+        if ( cal.pixelDepth == 1) cal.pixelDepth = 0.5;
+        gd.addNumericField("Calibration z (µm)  :", cal.pixelDepth, 3);
         gd.showDialog();
         int[] chChoices = new int[channels.length];
         for (int n = 0; n < chChoices.length; n++) {
@@ -357,6 +369,9 @@ public class PML_Tools {
         trackMate_Detector_Method = gd.getNextChoice();
         radius = gd.getNextNumber();
         threshold = gd.getNextNumber();
+        cal.pixelWidth = gd.getNextNumber();
+        cal.pixelHeight = cal.pixelWidth;
+        cal.pixelDepth = gd.getNextNumber();
         if (gd.wasCanceled())
                 chChoices = null;
         return(chChoices);
@@ -381,22 +396,32 @@ public class PML_Tools {
         }
         return(imgRemo);
     }
-    
-    
-/**
+  /**
      * Nucleus segmentation
      * @param imgNuc
      * @return 
      */
     public Object3D findnucleus(ImagePlus imgNuc) {
-        //ImagePlus img = removeOutliers(imgNuc, 20, 20, 1);
+        IJ.run(imgNuc, "Gaussian Blur 3D...", "x=2 y=2 z=2");
         IJ.run(imgNuc, "Remove Outliers", "block_radius_x=40 block_radius_y=40 standard_deviations=1 stack");
+        IJ.run(imgNuc, "Gamma...", "value=1.30 stack");
+         
+        // try to get rid of extreme slices without nuclei
+        ImagePlus globalBin = new Duplicator().run(imgNuc);
+        IJ.setAutoThreshold(imgNuc, "Default dark stack");
+        Prefs.blackBackground = false;
+        IJ.run(imgNuc, "Convert to Mask", "method=Default background=Dark");
         ImageStack stack = new ImageStack(imgNuc.getWidth(), imgNuc.getHeight());
         for (int i = 1; i <= imgNuc.getStackSize(); i++) {
             IJ.showStatus("Finding nucleus section "+i+" / "+imgNuc.getStackSize());
+            globalBin.setSlice(i);
+            ImageStatistics stat = globalBin.getStatistics();
+            // contains part of the nucleus
+            if (stat.mean > 0)
+            {
             imgNuc.setZ(i);
             imgNuc.updateAndDraw();
-            IJ.run(imgNuc, "Nuclei Outline", "blur=5 blur2=30 threshold_method=Li outlier_radius=0 outlier_threshold=0 max_nucleus_size=500"
+            IJ.run(imgNuc, "Nuclei Outline", "blur=2 blur2=300 threshold_method=Li outlier_radius=0 outlier_threshold=0 max_nucleus_size=500"
                     + " min_nucleus_size=10 erosion=0 expansion_inner=0 expansion=0 results_overlay");
             imgNuc.setZ(1);
             imgNuc.updateAndDraw();
@@ -404,15 +429,64 @@ public class PML_Tools {
             ImageProcessor ip =  mask.getProcessor();
             ip.invertLut();
             stack.addSlice(ip);
+            }
+            // empty slice
+            else {
+                ImagePlus mask = IJ.createImage("mask", "8-bit white", imgNuc.getWidth(), imgNuc.getHeight(), 1);
+                ImageProcessor ip =  mask.getProcessor();
+                ip.invertLut();
+                stack.addSlice(ip);  
+            }
         }
-
+        closeImages(globalBin);
         ImagePlus imgStack = new ImagePlus("Nucleus", stack);
         imgStack.setCalibration(imgNuc.getCalibration());
-        ImagePlus water = WatershedSplit(imgStack, 10);
+        //imgStack.show();
+        //new WaitForUserDialog("test").show();
+        ImagePlus water = WatershedSplit(imgStack, 30);
+        water.setCalibration(imgNuc.getCalibration());
+        Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(water).getObjectsWithinVolume(minNuc, maxNuc, true));
+        if (nucPop.getNbObjects()>1) nucPop.removeObjectsTouchingBorders(water, false);
+        //nucPop.updateNamesAndValues();
+        Object3D nucObj = nucPop.getObject(0);
+        closeImages(imgStack);
+        closeImages(water);
+        return(nucObj);
+    } 
+    
+/**
+     * Nucleus segmentation
+     * @param imgNuc
+     * @return 
+     */
+    public Object3D findnucleusTest(ImagePlus imgNuc) {
+        //ImagePlus img = removeOutliers(imgNuc, 20, 20, 1);
+        IJ.run(imgNuc, "Gaussian Blur 3D...", "x=1 y=1 z=2");
+        //imgNuc.show();
+        IJ.run(imgNuc, "Remove Outliers", "block_radius_x=40 block_radius_y=40 standard_deviations=1 stack");
+        IJ.run(imgNuc, "Gamma...", "value=1.30 stack");
+        imgNuc.show();
+        new WaitForUserDialog("test").show();
+        ImagePlus imgStack = new Duplicator().run(imgNuc);
+        IJ.run(imgStack,"Difference of Gaussians", "  sigma1=20 sigma2=0.25 scaled stack");
+        
+        //IJ.run(imgNuc, "3D Nuclei Segmentation (beta)", "auto_threshold=Li manual=0 separate_nuclei");
+        //ImagePlus imgStack = IJ.getImage();
+        //imgStack.hide();
+        imgStack.setTitle("Nucleus");
+        imgStack.setCalibration(imgNuc.getCalibration());
+        //imgStack.show();
+        //new WaitForUserDialog("test").show();
+        
+        threshold(imgStack, "Otsu", true);
+        ImagePlus water = WatershedSplit(imgStack, 25);
         water.setCalibration(imgNuc.getCalibration());
         
+        //water.show();
+        //new WaitForUserDialog("test").show();
+        
         Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(water).getObjectsWithinVolume(minNuc, maxNuc, true));
-        nucPop.removeObjectsTouchingBorders(water, false);
+        if ( nucPop.getNbObjects()>1 ) nucPop.removeObjectsTouchingBorders(water, false);
         //nucPop.updateNamesAndValues();
         Object3D nucObj = nucPop.getObject(0);
         closeImages(imgStack);
@@ -422,13 +496,13 @@ public class PML_Tools {
     
     
     // Threshold images and fill holes
-    public void threshold(ImagePlus img, AutoThresholder.Method thMed, boolean fill) {
+    public void threshold(ImagePlus img, String thMed, boolean fill) {
         //  Threshold and binarize
         img.setZ(img.getNSlices()/2);
         img.updateAndDraw();
-        IJ.setAutoThreshold(img, thMed.toString()+" dark");
+        IJ.setAutoThreshold(img, thMed+" dark");
         Prefs.blackBackground = false;
-        IJ.run(img, "Convert to Mask", "method="+thMed.toString()+" background=Dark");
+        IJ.run(img, "Convert to Mask", "method="+thMed+" background=Dark");
         if (fill) {
             IJ.run(img,"Fill Holes", "stack");
         }
@@ -692,6 +766,7 @@ public class PML_Tools {
         edt16.intersectMask(imgMask);
         // seeds
         ImageHandler seedsImg = FastFilters3D.filterImage(edt16, FastFilters3D.MAXLOCAL, radXY, radXY, radZ, 0, false);
+        //ImageHandler seedsImg = ImageInt.wrap(binaryMask);
         Watershed3D water = new Watershed3D(edt16, seedsImg, 0, 0);
         water.setLabelSeeds(true);
         return(water.getWatershedImage3D().getImagePlus());
