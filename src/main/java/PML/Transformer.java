@@ -56,7 +56,8 @@ public class Transformer {
         try 
         {
             Object turboReg = null;
-            ImageStatistics stat = imp.getStatistics();
+            IJ.run(imp, "16-bit","");
+            //ImageStatistics stat = imp.getStatistics();
             for ( int z=1; z<=imp.getNSlices(); z++)
             {
                 imp.setSlice(z);
@@ -95,8 +96,8 @@ public class Transformer {
                 converter.convertToGray16();
                 imp.setProcessor(null, transformedSource.getProcessor());
                }        
-             double newval = stat.mean - 1*stat.stdDev;    
-             IJ.run(imp, "Macro...", "code=v=v+(v==0)*"+newval+" stack");
+             //double newval = stat.mean - 1*stat.stdDev;    
+             //IJ.run(imp, "Macro...", "code=v=v+(v==0)*"+newval+" stack");
         }
         catch (Exception e)
         {

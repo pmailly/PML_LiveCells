@@ -173,9 +173,7 @@ public class PML_LiveCells implements PlugIn {
                         imgNuc = BF.openImagePlus(options)[0];
                         imgNuc.setCalibration(cal);
                         // apply image drift correction
-                        if (t>0) trans.get(t-1).doTransformation(imgNuc);
-                        // find nuc object
-                        Object3D nucObj = pml.findnucleus(imgNuc);
+                        Object3D nucObj = pml.findnucleus(imgNuc, trans , t);
                         nucPop.addObject(nucObj);
                         // Open pml channel
                         options.setCBegin(0, channelIndex[1]);
@@ -184,7 +182,8 @@ public class PML_LiveCells implements PlugIn {
                         imgPML.setCalibration(cal);
                         Objects3DPopulation pmlPop = new Objects3DPopulation();
                         // apply image drift correction
-                        if ( t>0) trans.get(t-1).doTransformation(imgPML);
+                        if (t > 0)
+                            trans.get(t - 1).doTransformation(imgPML);
                         if (pml.trackMate_Detector_Method.equals("DoG"))
                             pmlPop = pml.findDotsDoG(imgPML, nucObj);
                         else
@@ -195,12 +194,13 @@ public class PML_LiveCells implements PlugIn {
                         pmlInt.add(pml.getPMLIntensity(pmlPop, imgPML));
                         imgDiffusArray[t] = imgPML;
                     }
-
+                    
+                    // Save images objects
+                    pml.saveImageObjects(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName+"_Objects-"+nucIndex+".tif");
+                    ImagePlus dotBin = pml.saveImagePMLs(pmlPopList, imgDiffusArray, outDirResults+rootName+"_PMLs-"+nucIndex+".tif");
                     // Save diffus image
                     pml.saveDiffusImage(pmlPopList, imgDiffusArray, outDirResults+rootName+"_Diffuse-"+nucIndex+".tif");
-                    // Save images objects
-                     pml.saveImageObjects(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName+"_Objects-"+nucIndex+".tif");
-                     ImagePlus dotBin = pml.saveImagePMLs(nucPop, imgDiffusArray, outDirResults+rootName+"_PMLs-"+nucIndex+".tif");
+                    
                     
                      
                     

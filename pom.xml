@@ -46,10 +46,10 @@
 	</scm>
 
 	<properties>
-            <!-- <imagej.app.directory>/opt/Fiji.app/</imagej.app.directory>  -->
-          <imagej.app.directory>/home/gaelle/Logiciel/Fiji.app/</imagej.app.directory> 
+            <imagej.app.directory>/opt/Fiji.app/</imagej.app.directory>
+          <!--<imagej.app.directory>/home/gaelle/Logiciel/Fiji.app/</imagej.app.directory>--> 
             <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-            <main-class>PML_LiveCellsr</main-class>
+            <main-class>PML_LiveCells</main-class>
 	</properties>
 
 	<dependencies>

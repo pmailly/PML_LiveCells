@@ -80,9 +80,9 @@ public class TrackMater extends TrackMatePlugIn_ {
         settings.trackerSettings.put("GAP_CLOSING_MAX_DISTANCE", 1.0);
         
         settings.trackerSettings.put("ALLOW_TRACK_MERGING", true);
-        settings.trackerSettings.put("MERGING_MAX_DISTANCE", 5.0);
+        settings.trackerSettings.put("MERGING_MAX_DISTANCE", 1.0);
         settings.trackerSettings.put("ALLOW_TRACK_SPLITTING", true);
-        
+        settings.trackerSettings.put("SPLITTING_MAX_DISTANCE", 1.0);
         // Run trackMate with the settings
         final String welcomeMessage = TrackMate.PLUGIN_NAME_STR + " v" + TrackMate.PLUGIN_NAME_VERSION + " started on:\n" + TMUtils.getCurrentTimeString() + '\n';
         if ( !trackmate.checkInput() || !trackmate.process() )

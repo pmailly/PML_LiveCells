@@ -401,11 +401,13 @@ public class PML_Tools {
      * @param imgNuc
      * @return 
      */
-    public Object3D findnucleus(ImagePlus imgNuc) {
+    public Object3D findnucleus(ImagePlus imgNuc, ArrayList<Transformer> trans, int t) {
+        
         IJ.run(imgNuc, "Gaussian Blur 3D...", "x=2 y=2 z=2");
         IJ.run(imgNuc, "Remove Outliers", "block_radius_x=40 block_radius_y=40 standard_deviations=1 stack");
         IJ.run(imgNuc, "Gamma...", "value=1.30 stack");
-         
+         if (t > 0)
+            trans.get(t - 1).doTransformation(imgNuc);
         // try to get rid of extreme slices without nuclei
         ImagePlus globalBin = new Duplicator().run(imgNuc);
         IJ.setAutoThreshold(imgNuc, "Default dark stack");
@@ -441,16 +443,14 @@ public class PML_Tools {
         closeImages(globalBin);
         ImagePlus imgStack = new ImagePlus("Nucleus", stack);
         imgStack.setCalibration(imgNuc.getCalibration());
-        //imgStack.show();
-        //new WaitForUserDialog("test").show();
-        ImagePlus water = WatershedSplit(imgStack, 30);
-        water.setCalibration(imgNuc.getCalibration());
-        Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(water).getObjectsWithinVolume(minNuc, maxNuc, true));
-        if (nucPop.getNbObjects()>1) nucPop.removeObjectsTouchingBorders(water, false);
+//        ImagePlus water = WatershedSplit(imgStack, 30);
+//        water.setCalibration(imgNuc.getCalibration());
+        Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(imgStack).getObjectsWithinVolume(minNuc, maxNuc, true));
+        if (nucPop.getNbObjects()>1) nucPop.removeObjectsTouchingBorders(imgStack, false);
         //nucPop.updateNamesAndValues();
         Object3D nucObj = nucPop.getObject(0);
         closeImages(imgStack);
-        closeImages(water);
+        //closeImages(water);
         return(nucObj);
     } 
     
@@ -534,6 +534,7 @@ public class PML_Tools {
         IJ.setAutoThreshold(imgLaplacien, thMet+" dark");
         Prefs.blackBackground = false;
         IJ.run(imgLaplacien, "Convert to Mask", "method="+thMet+" background=Default");
+        
         Objects3DPopulation pmlPop = new Objects3DPopulation(getPopFromImage(imgLaplacien).getObjectsWithinVolume(minPML, maxPML, true));
         for ( int i = 0; i < pmlPop.getNbObjects(); i++)
         {
@@ -564,6 +565,7 @@ public class PML_Tools {
         IJ.setAutoThreshold(imgDOG, thMet+" dark");
         Prefs.blackBackground = false;
         IJ.run(imgDOG, "Convert to Mask", "method="+thMet+" background=Default");
+
         Objects3DPopulation pmlPop = new Objects3DPopulation(getPopFromImage(imgDOG).getObjectsWithinVolume(minPML, maxPML, true));
         for ( int i = 0; i < pmlPop.getNbObjects(); i++)
         {
@@ -690,29 +692,23 @@ public class PML_Tools {
      /**
      * Save image objects
      */
-    public ImagePlus saveImagePMLs(Objects3DPopulation nucPop, ImagePlus[] imgArray, String pathName) {
-       int[] bb =  {10000,0,10000,0,10000,0};
-       for (int i=0; i<imgArray.length; i++)
-       {
-           Object3D nuc = nucPop.getObject(i);
-           int[] boundingBox = nuc.getBoundingBox();
-           for ( int j = 0; j < 6; j+=2) 
-           {
-               if ( boundingBox[j] < bb[j]) bb[j] = boundingBox[j];
-           }
-           for ( int j = 1; j < 6; j+=2) 
-           {
-               if ( boundingBox[j] > bb[j]) bb[j] = boundingBox[j];
-           }
+    public ImagePlus saveImagePMLs(ArrayList<Objects3DPopulation> pmlPopList, ImagePlus[] imgArray, String pathName) {
+       ImagePlus[] hyperPMLOrg = new ImagePlus[imgArray.length];
+       ImagePlus[] hyperPML = new ImagePlus[imgArray.length];
+        for (int i = 0; i < imgArray.length; i++) {
+           ImageHandler imh = ImageHandler.wrap(imgArray[i]).createSameDimensions();
+           Objects3DPopulation pmlPop = pmlPopList.get(i);
+           pmlPop.draw(imh, 255);
+           hyperPML[i] = imh.getImagePlus(); 
+           hyperPMLOrg[i] = imgArray[i];
         }
-        ImagePlus hyperPML = new Concatenator().concatenate(imgArray, false);
-        Roi roi = new Roi(bb[0], bb[2], bb[1]-bb[0], bb[3]-bb[2]);
-        hyperPML.setRoi(roi);       
-       //hyperRes.show();
-        // save image for objects population
-        FileSaver ImgObjectsFile = new FileSaver(hyperPML);
-        ImgObjectsFile.saveAsTiff(pathName);
-        return hyperPML;
+        ImagePlus hyperPMLTime = new Concatenator().concatenate(hyperPML, true);
+        ImagePlus hyperPMLOrgTime = new Concatenator().concatenate(hyperPMLOrg, true);
+        // Save diffus
+        FileSaver imgPMLOrg = new FileSaver(hyperPMLOrgTime);
+        imgPMLOrg.saveAsTiff(pathName);
+        closeImages(hyperPMLOrgTime);
+        return(hyperPMLTime);
     }
     
  
@@ -738,7 +734,7 @@ public class PML_Tools {
             }
            hyperDifuse[i] = imh.getImagePlus(); 
         }
-        ImagePlus hyperDifuseTime = new Concatenator().concatenate(hyperDifuse, true);
+        ImagePlus hyperDifuseTime = new Concatenator().concatenate(hyperDifuse, false);
         // Save diffus
         FileSaver imgDiffus = new FileSaver(hyperDifuseTime);
         imgDiffus.saveAsTiff(pathName);
