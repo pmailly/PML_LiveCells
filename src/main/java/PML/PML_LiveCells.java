@@ -160,7 +160,7 @@ public class PML_LiveCells implements PlugIn {
                     ArrayList<DescriptiveStatistics> pmlInt = new ArrayList<>();
                     pml.closeImages(imgNuc);
                     //int time = reader.getSizeT();
-                    int time = (reader.getSizeT() < 10 )? reader.getSizeT():10;
+                    int time = reader.getSizeT();
                     // for each time find nucleus, plml
                     ImagePlus[] imgDiffusArray = new ImagePlus[time];
                     for (int t = 0; t < time; t++) {
