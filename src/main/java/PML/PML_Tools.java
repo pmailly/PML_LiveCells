@@ -80,6 +80,7 @@ public class PML_Tools {
     // Trackmate dialog parameters
     public double radius = 0.75;
     public double threshold = 35;
+    public double merging_dist = 0.8;
     public String trackMate_Detector_Method = "LoG";
     
     public CLIJ2 clij2 = CLIJ2.getInstance();
@@ -351,6 +352,7 @@ public class PML_Tools {
         gd.addNumericField("PML dilatation factor (µm) :", dilate, 3);
         gd.addMessage("Trackmate parameters", Font.getFont("Monospace"), Color.blue);
         gd.addChoice("Dots detector method :", TrackMate_Detector, TrackMate_Detector[1]);
+        gd.addNumericField("Merging / spliting max distance : ", merging_dist);
         gd.addNumericField("PML dots radius (µm) :", radius, 3);
         gd.addNumericField("PML threshold        :", threshold, 3);
         gd.addMessage("Image calibration", Font.getFont("Monospace"), Color.blue);
@@ -367,6 +369,7 @@ public class PML_Tools {
         thMet = gd.getNextChoice();
         dilate = (float)gd.getNextNumber();
         trackMate_Detector_Method = gd.getNextChoice();
+        merging_dist = gd.getNextNumber();
         radius = gd.getNextNumber();
         threshold = gd.getNextNumber();
         cal.pixelWidth = gd.getNextNumber();
