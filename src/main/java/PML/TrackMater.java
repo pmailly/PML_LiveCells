@@ -110,17 +110,17 @@ public class TrackMater extends TrackMatePlugIn_ {
         }
         
         // Export results to XML
-        final String export_path_str = exportfile;
-        final File export_path = new File( export_path_str );
-        try
-        {
-                ExportTracksToXML.export( model, settings, export_path );
-        }
-        catch ( final Exception e )
-        {
-                IJ.error( "When exporting to " + export_path + ", file not found:\n" + e.getMessage() + '\n' );
-                return;
-        }
+//        final String export_path_str = exportfile;
+//        final File export_path = new File( export_path_str );
+//        try
+//        {
+//                ExportTracksToXML.export( model, settings, export_path );
+//        }
+//        catch ( final Exception e )
+//        {
+//                IJ.error( "When exporting to " + export_path + ", file not found:\n" + e.getMessage() + '\n' );
+//                return;
+//        }
       
         
          // Export statistics file ?        
