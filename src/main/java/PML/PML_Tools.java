@@ -352,7 +352,7 @@ public class PML_Tools {
         gd.addNumericField("PML dilatation factor (µm) :", dilate, 3);
         gd.addMessage("Trackmate parameters", Font.getFont("Monospace"), Color.blue);
         gd.addChoice("Dots detector method :", TrackMate_Detector, TrackMate_Detector[1]);
-        gd.addNumericField("Merging / spliting max distance : ", merging_dist);
+        gd.addNumericField("Merging / spliting max distance : ", merging_dist,3);
         gd.addNumericField("PML dots radius (µm) :", radius, 3);
         gd.addNumericField("PML threshold        :", threshold, 3);
         gd.addMessage("Image calibration", Font.getFont("Monospace"), Color.blue);
