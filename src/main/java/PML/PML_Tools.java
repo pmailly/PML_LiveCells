@@ -446,8 +446,8 @@ public class PML_Tools {
         closeImages(globalBin);
         ImagePlus imgStack = new ImagePlus("Nucleus", stack);
         imgStack.setCalibration(imgNuc.getCalibration());
-        imgStack.show();
-        new WaitForUserDialog(thMet).show();
+//        imgStack.show();
+//        new WaitForUserDialog(thMet).show();
 //        ImagePlus water = WatershedSplit(imgStack, 30);
 //        water.setCalibration(imgNuc.getCalibration());
         Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(imgStack).getObjectsWithinVolume(minNuc, maxNuc, true));
