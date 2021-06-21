@@ -442,7 +442,6 @@ public class PML_Tools {
         closeImages(globalBin);
         ImagePlus imgStack = new ImagePlus("Nucleus", stack);
         imgStack.setCalibration(imgNuc.getCalibration());
-
         // Apply transformation and rebinarize
         if (t > 0){
               trans.get(t - 1).doTransformation(imgStack);
