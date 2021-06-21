@@ -413,9 +413,9 @@ public class PML_Tools {
             trans.get(t - 1).doTransformation(imgNuc);
         // try to get rid of extreme slices without nuclei
         ImagePlus globalBin = new Duplicator().run(imgNuc);
-        IJ.setAutoThreshold(imgNuc, "Default dark stack");
+        IJ.setAutoThreshold(globalBin, "Default dark stack");
         Prefs.blackBackground = false;
-        IJ.run(imgNuc, "Convert to Mask", "method=Default background=Dark");
+        IJ.run(globalBin, "Convert to Mask", "method=Default background=Dark");
         ImageStack stack = new ImageStack(imgNuc.getWidth(), imgNuc.getHeight());
         for (int i = 1; i <= imgNuc.getStackSize(); i++) {
             IJ.showStatus("Finding nucleus section "+i+" / "+imgNuc.getStackSize());
