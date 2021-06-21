@@ -406,7 +406,7 @@ public class PML_Tools {
      */
     public Object3D findnucleus(ImagePlus imgNuc, ArrayList<Transformer> trans, int t) {
         
-        IJ.run(imgNuc, "Gaussian Blur 3D...", "x=2 y=2 z=2");
+        IJ.run(imgNuc, "Median 3D...", "x=2 y=2 z=2");
         IJ.run(imgNuc, "Remove Outliers", "block_radius_x=40 block_radius_y=40 standard_deviations=1 stack");
         IJ.run(imgNuc, "Gamma...", "value=1.30 stack");
          if (t > 0)
@@ -446,6 +446,8 @@ public class PML_Tools {
         closeImages(globalBin);
         ImagePlus imgStack = new ImagePlus("Nucleus", stack);
         imgStack.setCalibration(imgNuc.getCalibration());
+        imgStack.show();
+        new WaitForUserDialog(thMet).show();
 //        ImagePlus water = WatershedSplit(imgStack, 30);
 //        water.setCalibration(imgNuc.getCalibration());
         Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(imgStack).getObjectsWithinVolume(minNuc, maxNuc, true));
