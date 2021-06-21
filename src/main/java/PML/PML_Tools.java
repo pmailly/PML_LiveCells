@@ -476,46 +476,6 @@ public class PML_Tools {
         return(nucObj);
     } 
     
-/**
-     * Nucleus segmentation
-     * @param imgNuc
-     * @return 
-     */
-    public Object3D findnucleusTest(ImagePlus imgNuc) {
-        //ImagePlus img = removeOutliers(imgNuc, 20, 20, 1);
-        IJ.run(imgNuc, "Gaussian Blur 3D...", "x=1 y=1 z=2");
-        //imgNuc.show();
-        IJ.run(imgNuc, "Remove Outliers", "block_radius_x=40 block_radius_y=40 standard_deviations=1 stack");
-        IJ.run(imgNuc, "Gamma...", "value=1.30 stack");
-        imgNuc.show();
-        new WaitForUserDialog("test").show();
-        ImagePlus imgStack = new Duplicator().run(imgNuc);
-        IJ.run(imgStack,"Difference of Gaussians", "  sigma1=20 sigma2=0.25 scaled stack");
-        
-        //IJ.run(imgNuc, "3D Nuclei Segmentation (beta)", "auto_threshold=Li manual=0 separate_nuclei");
-        //ImagePlus imgStack = IJ.getImage();
-        //imgStack.hide();
-        imgStack.setTitle("Nucleus");
-        imgStack.setCalibration(imgNuc.getCalibration());
-        //imgStack.show();
-        //new WaitForUserDialog("test").show();
-        
-        threshold(imgStack, "Otsu", true);
-        ImagePlus water = WatershedSplit(imgStack, 25);
-        water.setCalibration(imgNuc.getCalibration());
-        
-        //water.show();
-        //new WaitForUserDialog("test").show();
-        
-        Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(water).getObjectsWithinVolume(minNuc, maxNuc, true));
-        if ( nucPop.getNbObjects()>1 ) nucPop.removeObjectsTouchingBorders(water, false);
-        //nucPop.updateNamesAndValues();
-        Object3D nucObj = nucPop.getObject(0);
-        closeImages(imgStack);
-        closeImages(water);
-        return(nucObj);
-    }
-    
     
     // Threshold images and fill holes
     public void threshold(ImagePlus img, String thMed, boolean fill) {
