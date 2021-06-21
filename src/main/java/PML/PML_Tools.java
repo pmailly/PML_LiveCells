@@ -406,54 +406,74 @@ public class PML_Tools {
      */
     public Object3D findnucleus(ImagePlus imgNuc, ArrayList<Transformer> trans, int t) {
         
-        IJ.run(imgNuc, "Gaussian Blur 3D...", "x=2 y=2 z=2");
+        IJ.run(imgNuc, "Median 3D...", "x=2 y=2 z=2");
         IJ.run(imgNuc, "Remove Outliers", "block_radius_x=40 block_radius_y=40 standard_deviations=1 stack");
-        IJ.run(imgNuc, "Gamma...", "value=1.30 stack");
-         if (t > 0)
-            trans.get(t - 1).doTransformation(imgNuc);
         // try to get rid of extreme slices without nuclei
         ImagePlus globalBin = new Duplicator().run(imgNuc);
-        IJ.setAutoThreshold(globalBin, "Default dark stack");
+ 
+        IJ.setAutoThreshold(globalBin, "Otsu dark stack");
         Prefs.blackBackground = false;
-        IJ.run(globalBin, "Convert to Mask", "method=Default background=Dark");
+        IJ.run(globalBin, "Convert to Mask", "method=Otsu background=Dark stack");
         ImageStack stack = new ImageStack(imgNuc.getWidth(), imgNuc.getHeight());
         for (int i = 1; i <= imgNuc.getStackSize(); i++) {
             IJ.showStatus("Finding nucleus section "+i+" / "+imgNuc.getStackSize());
             globalBin.setSlice(i);
             ImageStatistics stat = globalBin.getStatistics();
             // contains part of the nucleus
-            if (stat.mean > 0)
+            if (stat.mean > 10)
             {
-            imgNuc.setZ(i);
-            imgNuc.updateAndDraw();
-            IJ.run(imgNuc, "Nuclei Outline", "blur=2 blur2=300 threshold_method=Li outlier_radius=0 outlier_threshold=0 max_nucleus_size=500"
-                    + " min_nucleus_size=10 erosion=0 expansion_inner=0 expansion=0 results_overlay");
-            imgNuc.setZ(1);
-            imgNuc.updateAndDraw();
-            ImagePlus mask = new ImagePlus("mask", imgNuc.createRoiMask().getBufferedImage());
-            ImageProcessor ip =  mask.getProcessor();
-            ip.invertLut();
-            stack.addSlice(ip);
+                imgNuc.setZ(i);
+                imgNuc.updateAndDraw();
+                IJ.run(imgNuc, "Nuclei Outline", "blur=2 blur2=300 threshold_method=Li outlier_radius=0 outlier_threshold=0 max_nucleus_size=500"
+                        + " min_nucleus_size=10 erosion=0 expansion_inner=0 expansion=0 results_overlay");
+                imgNuc.setZ(1);
+                imgNuc.updateAndDraw();
+                ImagePlus mask = new ImagePlus("mask", imgNuc.createRoiMask().getBufferedImage());
+                ImageProcessor ip =  mask.getProcessor();
+                stack.addSlice(ip);
             }
             // empty slice
             else {
-                ImagePlus mask = IJ.createImage("mask", "8-bit white", imgNuc.getWidth(), imgNuc.getHeight(), 1);
+                ImagePlus mask = IJ.createImage("mask", "8-bit black", imgNuc.getWidth(), imgNuc.getHeight(), 1);
                 ImageProcessor ip =  mask.getProcessor();
-                ip.invertLut();
                 stack.addSlice(ip);  
             }
         }
         closeImages(globalBin);
         ImagePlus imgStack = new ImagePlus("Nucleus", stack);
         imgStack.setCalibration(imgNuc.getCalibration());
-//        ImagePlus water = WatershedSplit(imgStack, 30);
-//        water.setCalibration(imgNuc.getCalibration());
+
+        // Apply transformation and rebinarize
+        if (t > 0){
+              trans.get(t - 1).doTransformation(imgStack);
+          
+            IJ.setAutoThreshold(imgStack, "Default dark stack");
+            Prefs.blackBackground = false;
+            IJ.run(imgStack, "Convert to Mask", "method=Default background=Dark stack");
+         }
+          
         Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(imgStack).getObjectsWithinVolume(minNuc, maxNuc, true));
-        if (nucPop.getNbObjects()>1) nucPop.removeObjectsTouchingBorders(imgStack, false);
-        //nucPop.updateNamesAndValues();
-        Object3D nucObj = nucPop.getObject(0);
+        // Find bigger object
+        int ind = 0;    
+        if (nucPop.getNbObjects()>1){
+            double maxv = 0;
+            for (int k=0; k<nucPop.getNbObjects(); k++) {
+                Object3D obj = nucPop.getObject(k);
+                double vol = obj.getVolumePixels();
+                if (vol>maxv){
+                    ind = k;
+                    maxv = vol;
+                }
+            }
+            
+        }
+        if ( nucPop.getNbObjects()==0 ) {
+            imgStack.show();
+            ind = 0;
+            IJ.error("No nucleus found, t "+t);
+        }
+        Object3D nucObj = nucPop.getObject(ind);
         closeImages(imgStack);
-        //closeImages(water);
         return(nucObj);
     } 
     

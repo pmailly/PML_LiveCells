@@ -161,6 +161,7 @@ public class PML_LiveCells implements PlugIn {
                     pml.closeImages(imgNuc);
                     //int time = reader.getSizeT();
                     int time = reader.getSizeT();
+                    //time = 4;
                     // for each time find nucleus, plml
                     ImagePlus[] imgDiffusArray = new ImagePlus[time];
                     for (int t = 0; t < time; t++) {
@@ -215,10 +216,10 @@ public class PML_LiveCells implements PlugIn {
                         meanVol += pmlVolMean;        
                        double pmlVolStd = pml.getPMLVolume(pmlPop).getStandardDeviation();
                         double pmlVolTotal = pml.getPMLVolume(pmlPop).getSum();
-                        double minDistCenterMean = pmlPop.distancesAllClosestCenter().getMean(); 
-                        double minDistCenterSD = pmlPop.distancesAllClosestCenter().getStdDev();
+                        //double minDistCenterMean = pmlPop.distancesAllClosestCenter().getMean(); 
+                        //double minDistCenterSD = pmlPop.distancesAllClosestCenter().getStdDev();
                         outPutResults.write(i+"\t"+nucVol+"\t"+pmlPop.getNbObjects()+"\t"+pmlDiffusInt.get(i)+"\t"+pmlInt.get(i).getMean()+"\t"
-                                +pmlInt.get(i).getStandardDeviation()+"\t"+pmlVolMean+"\t"+pmlVolStd+"\t"+pmlVolTotal+"\t"+minDistCenterMean+"\t"+minDistCenterSD+"\n");
+                                +pmlInt.get(i).getStandardDeviation()+"\t"+pmlVolMean+"\t"+pmlVolStd+"\t"+pmlVolTotal+"\n"); //+minDistCenterMean+"\t"+minDistCenterSD+"\n");
                         outPutResults.flush();
                     }                    
                     // Do Tracking
