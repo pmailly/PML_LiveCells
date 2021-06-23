@@ -444,8 +444,7 @@ public class PML_Tools {
         imgStack.setCalibration(imgNuc.getCalibration());
         // Apply transformation and rebinarize
         if (t > 0){
-              trans.get(t - 1).doTransformation(imgStack);
-          
+            trans.get(t - 1).doTransformation(imgStack);
             IJ.setAutoThreshold(imgStack, "Default dark stack");
             Prefs.blackBackground = false;
             IJ.run(imgStack, "Convert to Mask", "method=Default background=Dark stack");
@@ -469,7 +468,8 @@ public class PML_Tools {
         if ( nucPop.getNbObjects()==0 ) {
             imgStack.show();
             ind = 0;
-            IJ.error("No nucleus found, t "+t);
+            //IJ.Log("No nucleus found, t "+t);
+            return null;
         }
         Object3D nucObj = nucPop.getObject(ind);
         closeImages(imgStack);

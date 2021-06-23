@@ -175,6 +175,10 @@ public class PML_LiveCells implements PlugIn {
                         imgNuc.setCalibration(cal);
                         // apply image drift correction
                         Object3D nucObj = pml.findnucleus(imgNuc, trans , t);
+                        if (nucObj == null) {
+                            IJ.log("No nucleus found in Roi "+nucIndex+" at time "+(t+1)+"\n Skipping it \n");
+                            break;
+                        }
                         nucPop.addObject(nucObj);
                         // Open pml channel
                         options.setCBegin(0, channelIndex[1]);
