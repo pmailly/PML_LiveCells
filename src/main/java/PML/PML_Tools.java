@@ -13,6 +13,8 @@ import ij.measure.Calibration;
 import ij.plugin.Concatenator;
 import ij.plugin.Duplicator;
 import ij.plugin.GaussianBlur3D;
+import ij.plugin.ImageCalculator;
+import ij.plugin.SubHyperstackMaker;
 import ij.plugin.Thresholder;
 import ij.plugin.ZProjector;
 import ij.process.AutoThresholder;
@@ -46,6 +48,13 @@ import net.haesleinhuepf.clij.clearcl.ClearCLBuffer;
 import net.haesleinhuepf.clij2.CLIJ2;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.ArrayUtils;
+
+import StardistPML.StarDist2D;
+import ij.plugin.RoiScaler;
+import ij.plugin.frame.RoiManager;
+import java.util.HashMap;
+import net.imagej.Dataset;
+import net.imagej.ImageJ;
 
         
  /*
@@ -404,7 +413,7 @@ public class PML_Tools {
      * @param imgNuc
      * @return 
      */
-    public Object3D findnucleus(ImagePlus imgNuc, ArrayList<Transformer> trans, int t) {
+    public Object3D findnucleus(ImagePlus imgNuc, int t) {
         
         IJ.run(imgNuc, "Median 3D...", "x=2 y=2 z=2");
         IJ.run(imgNuc, "Remove Outliers", "block_radius_x=40 block_radius_y=40 standard_deviations=1 stack");
@@ -443,12 +452,12 @@ public class PML_Tools {
         ImagePlus imgStack = new ImagePlus("Nucleus", stack);
         imgStack.setCalibration(imgNuc.getCalibration());
         // Apply transformation and rebinarize
-        if (t > 0){
+        /**if (t > 0){
             trans.get(t - 1).doTransformation(imgStack);
             IJ.setAutoThreshold(imgStack, "Default dark stack");
             Prefs.blackBackground = false;
             IJ.run(imgStack, "Convert to Mask", "method=Default background=Dark stack");
-         }
+         }*/
           
         Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(imgStack).getObjectsWithinVolume(minNuc, maxNuc, true));
         // Find bigger object
@@ -641,7 +650,7 @@ public class PML_Tools {
     /**
      * Save image objects
      */
-    public ImagePlus saveImageObjects(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, String pathName) {
+    public ImagePlus saveImageObjects(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, String pathName, ArrayList<Transformer> trans) {
         ImagePlus[] hyperBin = new ImagePlus[imgArray.length];
        for (int i=0; i<imgArray.length; i++)
        {
@@ -661,6 +670,7 @@ public class PML_Tools {
             imhObjects.getImagePlus().setSlice(imhObjects.getImagePlus().getNSlices()/2);
             IJ.resetMinAndMax(imhObjects.getImagePlus());
             hyperBin[i] = imhObjects.getImagePlus();
+             if (i>0) (trans.get(i-1)).doTransformation(hyperBin[i]);
         }
        
        ImagePlus hyperRes = new Concatenator().concatenate(hyperBin, false);
@@ -670,6 +680,9 @@ public class PML_Tools {
         ImgObjectsFile.saveAsTiff(pathName);
         return hyperRes;
     }
+    
+    
+    
     
      /**
      * Save image objects
@@ -683,7 +696,7 @@ public class PML_Tools {
            pmlPop.draw(imh, 255);
            hyperPML[i] = imh.getImagePlus(); 
            hyperPMLOrg[i] = imgArray[i];
-        }
+          }
         ImagePlus hyperPMLTime = new Concatenator().concatenate(hyperPML, true);
         ImagePlus hyperPMLOrgTime = new Concatenator().concatenate(hyperPMLOrg, true);
         // Save diffus
@@ -712,7 +725,7 @@ public class PML_Tools {
                Object3D pmlObj = pmlPop.getObject(j);
                // dilate 
                 Object3DVoxels pmlDilatedObj = pmlObj.getDilatedObject(dilate, dilate, dilate);
-                pmlDilatedObj.draw(imh, 0);
+                pmlDilatedObj.draw(imh, 0);          
             }
            hyperDifuse[i] = imh.getImagePlus(); 
         }
@@ -722,7 +735,85 @@ public class PML_Tools {
         imgDiffus.saveAsTiff(pathName);
         closeImages(hyperDifuseTime);
     }
-           
+    
+    public ImagePlus drawNucleus(Objects3DPopulation pop, ImagePlus[] imArray) {
+        ImagePlus[] hyperBin = new ImagePlus[imArray.length];           
+        // Draw at each time
+        for (int i=0; i<imArray.length; i++)
+        {
+            ImageHandler imhObjects = ImageHandler.wrap(imArray[i]).createSameDimensions();
+            pop.getObject(i).draw(imhObjects, 255);
+            imhObjects.getImagePlus().setCalibration(cal);
+            hyperBin[i] = imhObjects.getImagePlus();
+        }
+        return new Concatenator().concatenate(hyperBin, false);
+    }
+    
+     public ImagePlus drawPMLs(ArrayList<Objects3DPopulation> pmlPopList, ImagePlus[] imgArray) {
+       ImagePlus[] hyperPML = new ImagePlus[imgArray.length];
+        for (int i = 0; i < imgArray.length; i++) {
+           ImageHandler imh = ImageHandler.wrap(imgArray[i]).createSameDimensions();
+           Objects3DPopulation pmlPop = pmlPopList.get(i);
+           pmlPop.draw(imh, 255);
+           hyperPML[i] = imh.getImagePlus(); 
+        }
+        return new Concatenator().concatenate(hyperPML, false);
+    }
+    
+     /** align */
+     public ImagePlus alignStack(ArrayList<Transformer> transformers, ImagePlus imp) {
+         ImagePlus[] hyper = new ImagePlus[transformers.size()+1];
+         SubHyperstackMaker sub = new SubHyperstackMaker();
+         hyper[0] = sub.makeSubhyperstack(imp, "1-1", "1-"+imp.getNSlices(), "1-1");
+         for ( int i = 1; i <= transformers.size(); i++) {
+            Transformer trans = transformers.get(i-1);
+            ImagePlus cur = sub.makeSubhyperstack(imp, "1-1", "1-"+imp.getNSlices(), (i+1)+"-"+(i+1));
+            trans.doTransformation(cur);
+            hyper[i] = cur;
+        }
+        return new Concatenator().concatenate(hyper, false);
+     }
+     
+     /**
+     * Save image objects
+     */
+    public ImagePlus alignAndSave(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, String root, int index) {
+        ImagePlus unnucl = drawNucleus(nucPop, imgArray);
+        // Get transformations to do to align stack
+        ArrayList<Transformer> trans = new StackReg_Plus().stackRegister(stackProj(unnucl));
+        // align nucleus stack
+        ImagePlus nucleus = alignStack(trans, unnucl);
+        closeImages(unnucl);
+        
+        // rebinarize
+         IJ.setAutoThreshold(nucleus, "Default dark stack");
+         Prefs.blackBackground = false;
+         IJ.run(nucleus, "Convert to Mask", "method=Default background=Dark stack");
+         IJ.run(nucleus, "Multiply...", "value=0.5 stack");
+         
+         // draw and align PMLs
+         ImagePlus unpml = drawPMLs(pmlPopList, imgArray);
+         // align pml stack
+         ImagePlus pml = alignStack(trans, unpml);
+         closeImages(unpml);
+         
+        // rebinarize
+         IJ.setAutoThreshold(pml, "Default dark stack");
+         Prefs.blackBackground = false;
+         IJ.run(pml, "Convert to Mask", "method=Default background=Dark stack");
+         
+         // Save images objects 
+        ImageCalculator ic = new ImageCalculator();
+        ic.run("Add stack", nucleus, pml);
+        FileSaver fileObjects = new FileSaver(nucleus);
+        fileObjects.saveAsTiff(root+"_Objects-"+index+".tif");
+        closeImages(nucleus);
+          
+        FileSaver filePML = new FileSaver(pml);
+        filePML.saveAsTiff(root+"_PMLs-"+index+".tif");
+        //closeImages(pml);
+        return pml;      
+    }
     
     public ImagePlus WatershedSplit(ImagePlus binaryMask, float rad) {
         float resXY = 1;
@@ -781,5 +872,65 @@ public class PML_Tools {
         }
         imh.closeImagePlus();
         return(pmlInt);
+    }
+    
+     /** \brief Change the size of the Roi to scale it to new image size, keep only where enough signal and draw binary mask */
+	public void makeNucleiMask(ImagePlus ip, double factxy, ImagePlus bin)
+	{
+                RoiManager rm = RoiManager.getInstance();
+		Roi[] rois = rm.getRoisAsArray();
+		rm.reset();
+		RoiScaler scaler = new RoiScaler();
+                IJ.setForegroundColor(255, 255, 255);
+                Roi roi = new Roi(0,0, ip.getWidth(), ip.getHeight());
+                ip.setRoi(roi);
+                IJ.run(ip, "Clear", "stack");
+		for ( int i=0; i < rois.length; i++ )
+		{
+			Roi cur = rois[i];
+                        bin.setSlice(cur.getPosition());
+       
+                        ImageStatistics stat = bin.getStatistics();
+                        // contains part of the nucleus
+                        if (stat.mean > 10)
+                        {
+                            Roi scaled = scaler.scale(cur, factxy, factxy, false);   
+                            ip.setSlice(cur.getPosition());
+                            scaled.setPosition(cur.getPosition());
+                            ip.setRoi(scaled);
+                            //rm.addRoi(scaled);
+                            IJ.run(ip, "Fill", "slice");
+                        }
+		}
+		rm.runCommand(ip,"Deselect");
+	}
+    
+    /** Look for all nuclei
+     Do z slice by slice stardist 
+     */
+    public ImagePlus stardistNuclei(ImagePlus imgNuc){
+        double factor = 300.0/imgNuc.getWidth();
+        ImagePlus resized = imgNuc.resize((int)(imgNuc.getWidth()*factor), (int)(imgNuc.getHeight()*factor), "bilinear");
+        StarDist2D star = new StarDist2D();
+        star.loadInput(resized);
+        star.run();
+    
+        // try to get rid of extreme slices without nuclei
+        ImagePlus globalBin = new Duplicator().run(imgNuc);
+        IJ.setAutoThreshold(globalBin, "Otsu dark stack");
+        Prefs.blackBackground = false;
+        IJ.run(globalBin, "Convert to Mask", "method=Otsu background=Dark stack");
+    
+        ImagePlus back = resized.resize(imgNuc.getWidth(), imgNuc.getHeight(), "bilinear");
+        closeImages(resized);
+        closeImages(imgNuc);
+        makeNucleiMask(back, 1.0/factor, globalBin);
+        back.setDimensions(1, back.getNSlices(), 1);
+        back.setCalibration(cal);
+        // back.show();
+       // new WaitForUserDialog("test").show();
+ 
+       return back; 
+      
     }
 }

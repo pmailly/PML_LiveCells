@@ -155,16 +155,18 @@ public class PML_LiveCells implements PlugIn {
                     
                     // Stack registration
                     ImagePlus imgNuc = BF.openImagePlus(options)[0];
-                    ArrayList<Transformer> trans = new StackReg_Plus().stackRegister(pml.stackProj(imgNuc));
+                    //ArrayList<Transformer> trans = new StackReg_Plus().stackRegister(pml.stackProj(imgNuc));
                     ArrayList<Double> pmlDiffusInt = new ArrayList<>();
                     ArrayList<DescriptiveStatistics> pmlInt = new ArrayList<>();
                     pml.closeImages(imgNuc);
                     //int time = reader.getSizeT();
                     int time = reader.getSizeT();
-                    //time = 4;
+                    //time = 10;
                     // for each time find nucleus, plml
                     ImagePlus[] imgDiffusArray = new ImagePlus[time];
+                    boolean failure = false;
                     for (int t = 0; t < time; t++) {
+                        failure = false;
                         IJ.showStatus("Reading time " + t + "/"+time);
                         options.setTBegin(0, t);
                         options.setTEnd(0, t);
@@ -174,9 +176,10 @@ public class PML_LiveCells implements PlugIn {
                         imgNuc = BF.openImagePlus(options)[0];
                         imgNuc.setCalibration(cal);
                         // apply image drift correction
-                        Object3D nucObj = pml.findnucleus(imgNuc, trans , t);
+                        Object3D nucObj = pml.findnucleus(imgNuc, t);
                         if (nucObj == null) {
                             IJ.log("No nucleus found in Roi "+nucIndex+" at time "+(t+1)+"\n Skipping it \n");
+                            failure = true;
                             break;
                         }
                         nucPop.addObject(nucObj);
@@ -187,8 +190,7 @@ public class PML_LiveCells implements PlugIn {
                         imgPML.setCalibration(cal);
                         Objects3DPopulation pmlPop = new Objects3DPopulation();
                         // apply image drift correction
-                        if (t > 0)
-                            trans.get(t - 1).doTransformation(imgPML);
+                        //if (t > 0) trans.get(t - 1).doTransformation(imgPML);
                         if (pml.trackMate_Detector_Method.equals("DoG"))
                             pmlPop = pml.findDotsDoG(imgPML, nucObj);
                         else
@@ -199,16 +201,13 @@ public class PML_LiveCells implements PlugIn {
                         pmlInt.add(pml.getPMLIntensity(pmlPop, imgPML));
                         imgDiffusArray[t] = imgPML;
                     }
+                    // no nucleus found
+                    if ( failure ) break; 
                     
-                    // Save images objects
-                    pml.saveImageObjects(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName+"_Objects-"+nucIndex+".tif");
-                    ImagePlus dotBin = pml.saveImagePMLs(pmlPopList, imgDiffusArray, outDirResults+rootName+"_PMLs-"+nucIndex+".tif");
-                    // Save diffus image
+                    // Align populations
+                    ImagePlus dotBin = pml.alignAndSave(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName, nucIndex);
                     pml.saveDiffusImage(pmlPopList, imgDiffusArray, outDirResults+rootName+"_Diffuse-"+nucIndex+".tif");
-                    
-                    
-                     
-                    
+                        
                     double meanVol = 0.0;
                     // find parameters
                     for (int i = 0; i < nucPop.getNbObjects(); i++) {
@@ -230,8 +229,10 @@ public class PML_LiveCells implements PlugIn {
                     IJ.showStatus("Track PMLs");
                     TrackMater track = new TrackMater();
                     String resName = outDirResults+rootName+"nuc_"+nucIndex;
-                    track.run(dotBin, resName+"_trackmateSaved.xml", resName+"_trackmateExport.xml", resName+"_trackmateSpotsStats.csv", resName+"_trackmateTrackStats.csv", outDirResults, rootName+"_PMLs-"+nucIndex+".tif");
-                    }
+                    track.run(dotBin, outDirResults, rootName+"_PMLs-"+nucIndex+".tif", pml.radius, pml.threshold, pml.trackMate_Detector_Method, 1.0, pml.merging_dist, true, true);
+                    track.saveResults(resName+"_trackmateSaved.xml", resName+"_trackmateExport.xml", resName+"_trackmateSpotsStats.csv", resName+"_trackmateTrackStats.csv", outDirResults, rootName+"_PMLs-"+nucIndex+".tif");
+                        
+                }
             }
             //}
             IJ.showStatus("Process done"); 

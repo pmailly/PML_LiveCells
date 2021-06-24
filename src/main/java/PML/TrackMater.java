@@ -27,22 +27,22 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.measure.ResultsTable;
 import java.io.File;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 
 
 
 public class TrackMater extends TrackMatePlugIn_ {
     
-    private PML_Tools pml = new PML_Tools();
+    //private PML_Tools pml = new PML_Tools();
    
-    private boolean subpixel = true;
-    private boolean median = true;
     private Logger logger = new LogRecorder( Logger.DEFAULT_LOGGER );
+    private String welcomeMessage;
     
     
-    
-    public void run(ImagePlus imp, String savefile, String exportfile, String statfile, String trackfile, String path, String imgname)
+    public void run(ImagePlus imp, String path, String imgname, double radius, double threshold, String detect, double link, double merging_dist, boolean subpixel, boolean median)
     {
        //Initialisation TrackMate.
         logger = new LogRecorder( Logger.VOID_LOGGER );
@@ -56,7 +56,7 @@ public class TrackMater extends TrackMatePlugIn_ {
     
        // Configure default settings.
         // Default detector.
-        if (new PML_Tools().trackMate_Detector_Method.equals("LoG"))
+        if (detect.equals("LoG"))
             settings.detectorFactory = new LogDetectorFactory();
         else
             settings.detectorFactory = new DogDetectorFactory();
@@ -68,29 +68,31 @@ public class TrackMater extends TrackMatePlugIn_ {
         settings.trackerSettings = settings.trackerFactory.getDefaultSettings();
         
         // Set-up detector
-        settings.detectorSettings.put( "RADIUS", pml.radius );
-        settings.detectorSettings.put( "THRESHOLD", pml.threshold );
+        settings.detectorSettings.put( "RADIUS", radius );
+        settings.detectorSettings.put( "THRESHOLD", threshold );
         settings.detectorSettings.put( "DO_SUBPIXEL_LOCALIZATION", subpixel );
         settings.detectorSettings.put( "DO_MEDIAN_FILTERING", median );
         settings.detectorSettings.put( "TARGET_CHANNEL", 0 );
         
         // Set-up tracker
-        settings.trackerSettings.put("LINKING_MAX_DISTANCE", 1.0);
+        settings.trackerSettings.put("LINKING_MAX_DISTANCE", link);
         settings.trackerSettings.put("MAX_FRAME_GAP", 0);
         settings.trackerSettings.put("GAP_CLOSING_MAX_DISTANCE", 1.0);
         
         settings.trackerSettings.put("ALLOW_TRACK_MERGING", true);
-        settings.trackerSettings.put("MERGING_MAX_DISTANCE", pml.merging_dist);
+        settings.trackerSettings.put("MERGING_MAX_DISTANCE", merging_dist);
         settings.trackerSettings.put("ALLOW_TRACK_SPLITTING", true);
-        settings.trackerSettings.put("SPLITTING_MAX_DISTANCE", pml.merging_dist);
+        settings.trackerSettings.put("SPLITTING_MAX_DISTANCE", merging_dist);
         // Run trackMate with the settings
-        final String welcomeMessage = TrackMate.PLUGIN_NAME_STR + " v" + TrackMate.PLUGIN_NAME_VERSION + " started on:\n" + TMUtils.getCurrentTimeString() + '\n';
+        welcomeMessage = TrackMate.PLUGIN_NAME_STR + " v" + TrackMate.PLUGIN_NAME_VERSION + " started on:\n" + TMUtils.getCurrentTimeString() + '\n';
         if ( !trackmate.checkInput() || !trackmate.process() )
         {
                 IJ.error( "Error while performing tracking:\n" + trackmate.getErrorMessage() );
                 return;
         }
-        
+    }
+    
+    public void saveResults(String savefile, String exportfile, String statfile, String trackfile, String path, String imgname) {
         // Save resultats
         final String save_path_str = savefile;
         final File save_path = new File( save_path_str );
@@ -136,6 +138,16 @@ public class TrackMater extends TrackMatePlugIn_ {
         
         
         IJ.showStatus("Tracking done "+imgname);
+
+    }
+    
+    public void getTracks(){
+        Set<Integer> trackIDs = model.getTrackModel().trackIDs(true); 
+        final Iterator<Integer> it = trackIDs.iterator();
+	while (it.hasNext()) {
+            final Integer id = it.next();
+            System.out.println(id);
+	}
 
     }
     
