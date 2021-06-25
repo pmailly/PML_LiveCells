@@ -664,7 +664,7 @@ public class PML_Tools {
             {
                 Object3D pmlObj = pmlPop.getObject(o);
                 pmlObj.draw(imhObjects, 255);
-            // labelsObject(pmlObj, imhObjects.getImagePlus(), o, 255);
+            // labelsObject(pmlObj, imhObjects.getImagePlus(), o, 255);saveI
             }
             imhObjects.getImagePlus().setCalibration(cal);
             imhObjects.getImagePlus().setSlice(imhObjects.getImagePlus().getNSlices()/2);
@@ -736,6 +736,8 @@ public class PML_Tools {
         closeImages(hyperDifuseTime);
     }
     
+     
+     
     public ImagePlus drawNucleus(Objects3DPopulation pop, ImagePlus[] imArray) {
         ImagePlus[] hyperBin = new ImagePlus[imArray.length];           
         // Draw at each time

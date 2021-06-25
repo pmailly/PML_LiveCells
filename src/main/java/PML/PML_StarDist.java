@@ -8,7 +8,6 @@ package PML;
  */
 
 
-
 import ij.*;
 import ij.gui.Roi;
 import ij.gui.WaitForUserDialog;
@@ -95,7 +94,7 @@ public class PML_StarDist implements PlugIn {
             IMetadata meta = service.createOMEXMLMetadata();
             ImageProcessorReader reader = new ImageProcessorReader();
             reader.setMetadataStore(meta);
-            int nucIndex = 0;
+           
             // Find channel names , calibration
             reader.setId(imageFiles.get(0));
             cal = pml.findImageCalib(meta);
@@ -124,7 +123,7 @@ public class PML_StarDist implements PlugIn {
                 
                 int time = reader.getSizeT();
                 time = 5;
-                ImagePlus[] nucleiMaskArray = new ImagePlus[time];
+                //ImagePlus[] nucleiMaskArray = new ImagePlus[time];
                 ArrayList<Objects3DPopulation> nucPops = new ArrayList<>();
                 
                 // Look for nuclei
@@ -153,79 +152,55 @@ public class PML_StarDist implements PlugIn {
                             nuclei.add(one);
                         }
                 }
-                 System.out.println("Found "+nuclei.size()+" nuclei");
-                //ImagePlus nucleiImg = new Concatenator().concatenate(nucleiMaskArray, false);
-                //nucleiImg.show();
-                
-                
-                //new WaitForUserDialog("show").show();
+                 System.out.println("Keep "+nuclei.size()+" nuclei");
+                 
+                  ImagePlus[] imgDiffusArray = new ImagePlus[time];
+                  ArrayList<Objects3DPopulation> pmlPopList = new ArrayList<>();
+                  ArrayList<Double> pmlDiffusInt = new ArrayList<>();
+                  ArrayList<DescriptiveStatistics> pmlInt = new ArrayList<>();
+                     
+                 // Work on each nuclei: crop, get pml, track...
+                 for (int nucIndex=0; nucIndex<nuclei.size(); nucIndex++) {
+                     Objects3DPopulation nuc = nuclei.get(nucIndex);
+                     int[] roilim = (nuc.getMask()).getBoundingBox();
                     
-                 //TrackMater track = new TrackMater();
-                 // nuclei radius
-                 //track.run(nucleiImg, outDirResults, rootName+"_Nuclei.tif", 10, 1, pml.trackMate_Detector_Method, 3, 2, false, false);
-                 //track.getTracks();
-                
-                /** 
-                    // Write headers results for results file{
+                      options.setCrop(true);
+                      options.setCropRegion(0, new Region(roilim[0], roilim[2], roilim[1]-roilim[0], roilim[3]-roilim[2]));
+
+                     for (int t = 0; t < time; t++) {                     
+                          // Open pml channel
+                            options.setCBegin(0, channelIndex[1]);
+                            options.setCEnd(0, channelIndex[1]);
+                            ImagePlus imgPML = BF.openImagePlus(options)[0];
+                            imgPML.setCalibration(cal);
+                            Objects3DPopulation pmlPop = new Objects3DPopulation();
+                           if (pml.trackMate_Detector_Method.equals("DoG"))
+                                pmlPop = pml.findDotsDoG(imgPML, nuc.getObject(t));
+                            else
+                                pmlPop = pml.findDotsLoG(imgPML, nuc.getObject(t));
+                            pmlPopList.add(pmlPop);
+                            pmlDiffusInt.add(pml.pmlDiffus(pmlPop, nuc.getObject(t), imgPML));
+                            pmlInt.add(pml.getPMLIntensity(pmlPop, imgPML));
+                            imgDiffusArray[t] = imgPML;
+                    }
+                    
+                     // Save images objects
+                    
+                    // Align populations
+                    ImagePlus dotBin = pml.alignAndSave(pmlPopList, nuc, imgDiffusArray, outDirResults+rootName, nucIndex);
+                    pml.saveDiffusImage(pmlPopList, imgDiffusArray, outDirResults+rootName+"_Diffuse-"+nucIndex+".tif");
+                    
+                        // Write headers results for results file{
                     FileWriter fileResults = new FileWriter(outDirResults + rootName + "_Nucleus_" + nucIndex +"_results.xls", false);
                     outPutResults = new BufferedWriter(fileResults);
                     outPutResults.write("Time\tNucleus Volume\tPML dot number\tNucleus Diffuse IntDensity\tPML Mean dots IntDensity\tPML dots Mean Volume"
                             + "\tPML dots STD IntDensity\tPML dot STD Volume\tPML Sum Vol\tPML dot Mean center-center distance\tPML dot SD center-center distance\n");
                     outPutResults.flush();
                     
-                    Objects3DPopulation nucPop = new Objects3DPopulation();
-                    ArrayList<Objects3DPopulation> pmlPopList = new ArrayList<>();
-                    
-                    ArrayList<Transformer> trans = new StackReg_Plus().stackRegister(pml.stackProj(imgNuc));
-                    ArrayList<Double> pmlDiffusInt = new ArrayList<>();
-                    ArrayList<DescriptiveStatistics> pmlInt = new ArrayList<>();
-                    pml.closeImages(imgNuc);
-                    //int time = reader.getSizeT();
-                    int time = reader.getSizeT();
-                    //time = 4;
-                    // for each time find nucleus, plml
-                    * 
-                    ImagePlus[] imgDiffusArray = new ImagePlus[time];
-                    * 
-                        // apply image drift correction
-                        Object3D nucObj = pml.findnucleus(imgNuc, trans , t);
-                        if (nucObj == null) {
-                            IJ.log("No nucleus found in Roi "+nucIndex+" at time "+(t+1)+"\n Skipping it \n");
-                            break;
-                        }
-                        nucPop.addObject(nucObj);
-                        // Open pml channel
-                        options.setCBegin(0, channelIndex[1]);
-                        options.setCEnd(0, channelIndex[1]);
-                        ImagePlus imgPML = BF.openImagePlus(options)[0];
-                        imgPML.setCalibration(cal);
-                        Objects3DPopulation pmlPop = new Objects3DPopulation();
-                        // apply image drift correction
-                        if (t > 0)
-                            trans.get(t - 1).doTransformation(imgPML);
-                        if (pml.trackMate_Detector_Method.equals("DoG"))
-                            pmlPop = pml.findDotsDoG(imgPML, nucObj);
-                        else
-                            pmlPop = pml.findDotsLoG(imgPML, nucObj);
-                        //System.out.println(pmlPop.getNbObjects()+" pml found");
-                        pmlPopList.add(pmlPop);
-                        pmlDiffusInt.add(pml.pmlDiffus(pmlPop, nucObj, imgPML));
-                        pmlInt.add(pml.getPMLIntensity(pmlPop, imgPML));
-                        imgDiffusArray[t] = imgPML;
-                    }
-                    
-                    // Save images objects
-                    pml.saveImageObjects(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName+"_Objects-"+nucIndex+".tif");
-                    ImagePlus dotBin = pml.saveImagePMLs(pmlPopList, imgDiffusArray, outDirResults+rootName+"_PMLs-"+nucIndex+".tif");
-                    // Save diffus image
-                    pml.saveDiffusImage(pmlPopList, imgDiffusArray, outDirResults+rootName+"_Diffuse-"+nucIndex+".tif");
-                        
-                     
-                    
                     double meanVol = 0.0;
                     // find parameters
-                    for (int i = 0; i < nucPop.getNbObjects(); i++) {
-                        Object3D nucObj = nucPop.getObject(i);
+                    for (int i = 0; i < nuc.getNbObjects(); i++) {
+                        Object3D nucObj = nuc.getObject(i);
                         double nucVol = nucObj.getVolumeUnit();
                         Objects3DPopulation pmlPop = pmlPopList.get(i);
                         int pmlDots = pmlPop.getNbObjects();
@@ -233,18 +208,19 @@ public class PML_StarDist implements PlugIn {
                         meanVol += pmlVolMean;        
                         double pmlVolStd = pml.getPMLVolume(pmlPop).getStandardDeviation();
                         double pmlVolTotal = pml.getPMLVolume(pmlPop).getSum();
-                        //double minDistCenterMean = pmlPop.distancesAllClosestCenter().getMean(); 
-                        //double minDistCenterSD = pmlPop.distancesAllClosestCenter().getStdDev();
                         outPutResults.write(i+"\t"+nucVol+"\t"+pmlPop.getNbObjects()+"\t"+pmlDiffusInt.get(i)+"\t"+pmlInt.get(i).getMean()+"\t"
-                                +pmlInt.get(i).getStandardDeviation()+"\t"+pmlVolMean+"\t"+pmlVolStd+"\t"+pmlVolTotal+"\n"); //+minDistCenterMean+"\t"+minDistCenterSD+"\n");
+                                +pmlInt.get(i).getStandardDeviation()+"\t"+pmlVolMean+"\t"+pmlVolStd+"\t"+pmlVolTotal+"\n"); 
                         outPutResults.flush();
                     }                    
                     // Do Tracking
                     IJ.showStatus("Track PMLs");
                     TrackMater track = new TrackMater();
                     String resName = outDirResults+rootName+"nuc_"+nucIndex;
-                    track.run(dotBin, resName+"_trackmateSaved.xml", resName+"_trackmateExport.xml", resName+"_trackmateSpotsStats.csv", resName+"_trackmateTrackStats.csv", outDirResults, rootName+"_PMLs-"+nucIndex+".tif");
-                    }*/
+                    track.run(dotBin, outDirResults, rootName+"_PMLs-"+nucIndex+".tif", pml.radius, pml.threshold, pml.trackMate_Detector_Method, 1.0, pml.merging_dist, true, true);
+                    track.saveResults(resName+"_trackmateSaved.xml", resName+"_trackmateExport.xml", resName+"_trackmateSpotsStats.csv", resName+"_trackmateTrackStats.csv", outDirResults, rootName+"_PMLs-"+nucIndex+".tif");
+                 
+                 }
+              
            }
             IJ.showStatus("Process done"); 
         } catch (DependencyException ex) {
