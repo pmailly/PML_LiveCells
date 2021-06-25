@@ -148,8 +148,12 @@ public class PML_StarDist implements PlugIn {
                  // find one nuclei in pop
                  for (int i = 0; i < init.getNbObjects(); i++) {
                         Object3D nucObj = init.getObject(i);
-                        
+                        Objects3DPopulation one = pml.trackNucleus(nucObj, nucPops);
+                        if ( one.getNbObjects() == time ) {
+                            nuclei.add(one);
+                        }
                 }
+                 System.out.println("Found "+nuclei.size()+" nuclei");
                 //ImagePlus nucleiImg = new Concatenator().concatenate(nucleiMaskArray, false);
                 //nucleiImg.show();
                 

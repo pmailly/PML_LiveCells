@@ -1048,4 +1048,21 @@ public class PML_Tools {
       
     }
     
+    
+   /** Looks for the closest nuclei at each time (track it). Loose it if too far from given distance */ 
+    public Objects3DPopulation trackNucleus( Object3D obj, ArrayList<Objects3DPopulation> pop) {
+        Objects3DPopulation nucl = new Objects3DPopulation();    
+        for (int i=0; i<pop.size(); i++) {
+            Object3D closest = (pop.get(i)).closestCenter(obj.getCenterAsPoint());
+            // threshold distance to loose the nuclei
+            if (obj.distCenterUnit(closest) > 2) {
+                return nucl;
+            }
+            // within distance, continue
+            nucl.addObject(closest);
+            obj = closest;
+        }
+        return nucl;
+    }
+    
 }
