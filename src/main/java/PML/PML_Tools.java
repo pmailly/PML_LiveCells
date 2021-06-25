@@ -874,8 +874,35 @@ public class PML_Tools {
         return(pmlInt);
     }
     
-     /** \brief Change the size of the Roi to scale it to new image size, keep only where enough signal and draw binary mask */
-	public void makeNucleiMask(ImagePlus ip, double factxy, ImagePlus bin)
+     /** \brief keep only where enough signal and draw binary mask */
+	public void makeNucleiMask(ImagePlus ip, ImagePlus bin)
+	{
+                RoiManager rm = RoiManager.getInstance();
+		Roi[] rois = rm.getRoisAsArray();
+		rm.reset();
+		IJ.setForegroundColor(255, 255, 255);
+                Roi roi = new Roi(0,0, ip.getWidth(), ip.getHeight());
+                ip.setRoi(roi);
+                IJ.run(ip, "Clear", "stack");
+		for ( int i=0; i < rois.length; i++ )
+		{
+			Roi cur = rois[i];
+                        bin.setSlice(cur.getPosition());
+       
+                        ImageStatistics stat = bin.getStatistics();
+                        // contains part of the nucleus
+                        if (stat.mean > 10)
+                        {
+                            ip.setSlice(cur.getPosition());
+                            ip.setRoi(cur);
+                            IJ.run(ip, "Fill", "slice");
+                        }
+		}
+		rm.runCommand(ip,"Deselect");
+	}
+        
+         /** \brief Change the size of the Roi to scale it to new image size, keep only where enough signal and draw binary mask */
+	public void makeNucleiResizeMask(ImagePlus ip, double factxy, ImagePlus bin)
 	{
                 RoiManager rm = RoiManager.getInstance();
 		Roi[] rois = rm.getRoisAsArray();
@@ -905,6 +932,7 @@ public class PML_Tools {
 		rm.runCommand(ip,"Deselect");
 	}
     
+    
     /** Look for all nuclei
      Do z slice by slice stardist 
      */
@@ -921,16 +949,103 @@ public class PML_Tools {
         Prefs.blackBackground = false;
         IJ.run(globalBin, "Convert to Mask", "method=Otsu background=Dark stack");
     
-        ImagePlus back = resized.resize(imgNuc.getWidth(), imgNuc.getHeight(), "bilinear");
-        closeImages(resized);
+        //ImagePlus back = resized.resize(imgNuc.getWidth(), imgNuc.getHeight(), "bilinear");
+        //closeImages(resized);
         closeImages(imgNuc);
-        makeNucleiMask(back, 1.0/factor, globalBin);
+        
+        /**makeNucleiResizeMask(back, 1.0/factor, globalBin);
         back.setDimensions(1, back.getNSlices(), 1);
         back.setCalibration(cal);
         // back.show();
-       // new WaitForUserDialog("test").show();
- 
-       return back; 
+       // new WaitForUserDialog("test").show(); */
+         makeNucleiMask(resized, globalBin);
+        resized.setDimensions(1, resized.getNSlices(), 1);
+        resized.setCalibration(cal);
+        
+       return resized; 
       
     }
+    
+     /** Look for all nuclei
+     Do z slice by slice stardist 
+     * return nuclei population
+     */
+    public Objects3DPopulation stardistNucleiPop(ImagePlus imgNuc){
+        double factor = 300.0/imgNuc.getWidth();
+        ImagePlus resized = imgNuc.resize((int)(imgNuc.getWidth()*factor), (int)(imgNuc.getHeight()*factor), "bilinear");
+        StarDist2D star = new StarDist2D();
+        star.loadInput(resized);
+        star.run();
+    
+        // try to get rid of extreme slices without nuclei
+        ImagePlus globalBin = new Duplicator().run(imgNuc);
+        IJ.setAutoThreshold(globalBin, "Otsu dark stack");
+        Prefs.blackBackground = false;
+        IJ.run(globalBin, "Convert to Mask", "method=Otsu background=Dark stack");
+    
+        ImagePlus back = resized.resize(imgNuc.getWidth(), imgNuc.getHeight(), "bilinear");
+        closeImages(resized);
+        closeImages(imgNuc);
+        
+        makeNucleiResizeMask(back, 1.0/factor, globalBin);
+        back.setDimensions(1, back.getNSlices(), 1);
+        back.setCalibration(cal);
+        // back.show();
+       // new WaitForUserDialog("test").show(); 
+        
+       Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(back).getObjectsWithinVolume(minNuc, maxNuc, true));
+       closeImages(back);
+       return(nucPop);
+    }
+      
+    /** Look for one nuclei in a Roi
+     Do z slice by slice stardist 
+     */
+    public Object3D stardistRoi(ImagePlus imgNuc){
+        double factor = 40.0/imgNuc.getWidth();
+        ImagePlus resized = imgNuc.resize((int)(imgNuc.getWidth()*factor), (int)(imgNuc.getHeight()*factor), "bilinear");
+        StarDist2D star = new StarDist2D();
+        star.loadInput(resized);
+        star.run();
+    
+        // try to get rid of extreme slices without nuclei
+        ImagePlus globalBin = new Duplicator().run(imgNuc);
+        IJ.setAutoThreshold(globalBin, "Otsu dark stack");
+        Prefs.blackBackground = false;
+        IJ.run(globalBin, "Convert to Mask", "method=Otsu background=Dark stack");
+    
+        ImagePlus back = resized.resize(imgNuc.getWidth(), imgNuc.getHeight(), "bilinear");
+        closeImages(resized);
+        closeImages(imgNuc);
+        
+        makeNucleiResizeMask(back, 1.0/factor, globalBin);
+        back.setDimensions(1, back.getNSlices(), 1);
+        back.setCalibration(cal);
+       
+        Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(back).getObjectsWithinVolume(minNuc, maxNuc, true));
+        // Find bigger object
+        int ind = 0;    
+        if (nucPop.getNbObjects()>1){
+            double maxv = 0;
+            for (int k=0; k<nucPop.getNbObjects(); k++) {
+                Object3D obj = nucPop.getObject(k);
+                double vol = obj.getVolumePixels();
+                if (vol>maxv){
+                    ind = k;
+                    maxv = vol;
+                }
+            }
+            
+        }
+        if ( nucPop.getNbObjects()==0 ) {
+            back.show();
+            ind = 0;
+            return null;
+        }
+        Object3D nucObj = nucPop.getObject(ind);
+        closeImages(back);
+        return(nucObj);
+      
+    }
+    
 }
