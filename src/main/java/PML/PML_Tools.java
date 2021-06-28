@@ -1067,4 +1067,26 @@ public class PML_Tools {
         return nucl;
     }
     
+    public int[] getBoundingBoxXY(Objects3DPopulation pop) {
+        int[] bb = new int[]{10000,0,100000,0};
+        for (int k=0; k<pop.getNbObjects(); k++) {
+                Object3D obj = pop.getObject(k);
+                int[] bbobj = obj.getBoundingBox();
+                if ( bbobj[0] < bb[0] ) bb[0] = bbobj[0];
+                if ( bbobj[2] < bb[2] ) bb[2] = bbobj[2];
+                if ( bbobj[1] > bb[1] ) bb[1] = bbobj[1];
+                if ( bbobj[3] > bb[3] ) bb[3] = bbobj[3];
+        }
+        return bb;
+    }
+
+    public Objects3DPopulation translateToRoi( Objects3DPopulation pop, int[] roi) {
+        Objects3DPopulation res = new Objects3DPopulation();
+        for (int k=0; k<pop.getNbObjects(); k++) {
+                Object3D obj = pop.getObject(k);
+                obj.translate(-roi[0], -roi[2], 0);
+                res.addObject(obj);
+        }
+        return res;
+    }
 }

@@ -135,7 +135,7 @@ public class PML_LiveCells implements PlugIn {
                     FileWriter fileResults = new FileWriter(outDirResults + rootName + "_Nucleus_" + nucIndex +"_results.xls", false);
                     outPutResults = new BufferedWriter(fileResults);
                     outPutResults.write("Time\tNucleus Volume\tPML dot number\tNucleus Diffuse IntDensity\tPML Mean dots IntDensity\tPML dots Mean Volume"
-                            + "\tPML dots STD IntDensity\tPML dot STD Volume\tPML Sum Vol\tPML dot Mean center-center distance\tPML dot SD center-center distance\n");
+                            + "\tPML dots STD IntDensity\tPML dot STD Volume\tPML Sum Vol\n");
                     outPutResults.flush();
                     
                     Rectangle rectRoi = roi.getBounds();
