@@ -232,7 +232,7 @@ public class StarDist2D extends StarDist2DBase implements Command {
             final HashMap<String, Object> paramsCNN = new HashMap<>();
             paramsCNN.put("input", input);
             paramsCNN.put("normalizeInput", true);
-            paramsCNN.put("percentileBottom", 1.0);
+            paramsCNN.put("percentileBottom", 0.2);
             paramsCNN.put("percentileTop", 99.8);
             paramsCNN.put("clip", false);
             paramsCNN.put("nTiles", 1);

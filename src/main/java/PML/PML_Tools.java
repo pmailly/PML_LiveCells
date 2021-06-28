@@ -160,7 +160,7 @@ public class PML_Tools {
      * @throws loci.formats.FormatException
      * @throws java.io.IOException
      */
-    public static String[] findChannels (String imageName, IMetadata meta, ImageProcessorReader reader) throws DependencyException, ServiceException, FormatException, IOException {
+    public static String[] findChannels (String imageName, IMetadata meta, ImageProcessorReader reader, boolean bioformat) throws DependencyException, ServiceException, FormatException, IOException {
         int chs = reader.getSizeC();
         String[] channels = new String[chs];
         String imageExt =  FilenameUtils.getExtension(imageName);
@@ -172,6 +172,10 @@ public class PML_Tools {
                         channels[n] = Integer.toString(n);
                     else 
                         channels[n] = meta.getChannelName(0, n).toString();
+                        if (!bioformat) {
+                            channels[n] = channels[n].replace("_", "-");
+                            channels[n] = "w"+(n+1)+channels[n];
+                        }
                 }
                 break;
             case "lif" :
@@ -739,7 +743,7 @@ public class PML_Tools {
      
      
     public ImagePlus drawNucleus(Objects3DPopulation pop, ImagePlus[] imArray) {
-        ImagePlus[] hyperBin = new ImagePlus[imArray.length];           
+        ImagePlus[] hyperBin = new ImagePlus[imArray.length];
         // Draw at each time
         for (int i=0; i<imArray.length; i++)
         {
@@ -776,23 +780,34 @@ public class PML_Tools {
         return new Concatenator().concatenate(hyper, false);
      }
      
+     public void saveWholeImage(ImagePlus[] imgs, String fileName) {
+        ImagePlus img = new Concatenator().concatenate(imgs, false);
+        FileSaver fileImg = new FileSaver(img);
+        fileImg.saveAsTiff(fileName);
+        closeImages(img);
+     }
+     
      /**
      * Save image objects
      */
-    public ImagePlus alignAndSave(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, String root, int index) {
+    public ImagePlus alignAndSave(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, String root, int index, boolean saveObj) {
+
         ImagePlus unnucl = drawNucleus(nucPop, imgArray);
         // Get transformations to do to align stack
         ArrayList<Transformer> trans = new StackReg_Plus().stackRegister(stackProj(unnucl));
-        // align nucleus stack
-        ImagePlus nucleus = alignStack(trans, unnucl);
-        closeImages(unnucl);
         
+        ImagePlus nucleus = null;
+        if (saveObj) {
+        // align nucleus stack
+        nucleus = alignStack(trans, unnucl);
         // rebinarize
          IJ.setAutoThreshold(nucleus, "Default dark stack");
          Prefs.blackBackground = false;
          IJ.run(nucleus, "Convert to Mask", "method=Default background=Dark stack");
-         IJ.run(nucleus, "Multiply...", "value=0.5 stack");
-         
+         IJ.run(nucleus, "Multiply...", "value=0.5 stack"); 
+        }
+        closeImages(unnucl);
+
          // draw and align PMLs
          ImagePlus unpml = drawPMLs(pmlPopList, imgArray);
          // align pml stack
@@ -804,18 +819,44 @@ public class PML_Tools {
          Prefs.blackBackground = false;
          IJ.run(pml, "Convert to Mask", "method=Default background=Dark stack");
          
+         if (saveObj){
          // Save images objects 
         ImageCalculator ic = new ImageCalculator();
         ic.run("Add stack", nucleus, pml);
         FileSaver fileObjects = new FileSaver(nucleus);
         fileObjects.saveAsTiff(root+"_Objects-"+index+".tif");
         closeImages(nucleus);
+        }
           
         FileSaver filePML = new FileSaver(pml);
         filePML.saveAsTiff(root+"_PMLs-"+index+".tif");
         //closeImages(pml);
         return pml;      
     }
+    
+     /**
+     * Save image objects
+     */
+    public void drawOnWholeImage(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, Roi roi) {
+        translateRoiBack(nucPop, roi);
+        ImagePlus imgnucl = drawNucleus(nucPop, imgArray);
+        IJ.run(imgnucl, "Multiply...", "value=0.5 stack");
+        // draw and align PMLs
+        translateRoiBack(pmlPopList, roi);
+        ImagePlus imgpml = drawPMLs(pmlPopList, imgArray);
+         
+        // Save images objects 
+        ImageCalculator ic = new ImageCalculator();
+        ic.run("Add stack", imgnucl, imgpml);
+        closeImages(imgpml);
+        for (int i=0; i<imgArray.length; i++){
+            ImagePlus frame = new Duplicator().run(imgnucl, i+1, i+1, 1, imgnucl.getNSlices(), 1, 1);
+            ic.run("Add stack", imgArray[i], frame);
+            closeImages(frame);
+        }     
+        closeImages(imgnucl);
+    }
+    
     
     public ImagePlus WatershedSplit(ImagePlus binaryMask, float rad) {
         float resXY = 1;
@@ -975,15 +1016,20 @@ public class PML_Tools {
     public Objects3DPopulation stardistNucleiPop(ImagePlus imgNuc){
         double factor = 300.0/imgNuc.getWidth();
         ImagePlus resized = imgNuc.resize((int)(imgNuc.getWidth()*factor), (int)(imgNuc.getHeight()*factor), "bilinear");
+        resized.setCalibration(cal);
+        IJ.run(resized, "Remove Outliers", "block_radius_x=2 block_radius_y=2 standard_deviations=1 stack");
         StarDist2D star = new StarDist2D();
         star.loadInput(resized);
         star.run();
     
         // try to get rid of extreme slices without nuclei
-        ImagePlus globalBin = new Duplicator().run(imgNuc);
-        IJ.setAutoThreshold(globalBin, "Otsu dark stack");
+        ImagePlus globalBin = new Duplicator().run(resized);
+        globalBin.setT(globalBin.getNFrames()/2);
+        IJ.setAutoThreshold(globalBin, "Otsu dark");
         Prefs.blackBackground = false;
         IJ.run(globalBin, "Convert to Mask", "method=Otsu background=Dark stack");
+        //globalBin.show();
+        //new WaitForUserDialog("t").show();
     
         ImagePlus back = resized.resize(imgNuc.getWidth(), imgNuc.getHeight(), "bilinear");
         closeImages(resized);
@@ -1009,7 +1055,7 @@ public class PML_Tools {
         StarDist2D star = new StarDist2D();
         star.loadInput(resized);
         star.run();
-    
+        
         // try to get rid of extreme slices without nuclei
         ImagePlus globalBin = new Duplicator().run(imgNuc);
         IJ.setAutoThreshold(globalBin, "Otsu dark stack");
@@ -1080,13 +1126,30 @@ public class PML_Tools {
         return bb;
     }
 
-    public Objects3DPopulation translateToRoi( Objects3DPopulation pop, int[] roi) {
-        Objects3DPopulation res = new Objects3DPopulation();
+    public void translateToRoi( Objects3DPopulation pop, int[] roi) {
+        //Objects3DPopulation res = new Objects3DPopulation();
         for (int k=0; k<pop.getNbObjects(); k++) {
                 Object3D obj = pop.getObject(k);
                 obj.translate(-roi[0], -roi[2], 0);
-                res.addObject(obj);
+               // res.addObject(obj);
         }
-        return res;
+        //return res;
+    }
+    
+     public void translateRoiBack( Objects3DPopulation pop, Roi roi) {
+        for (int k=0; k<pop.getNbObjects(); k++) {
+                Object3D obj = pop.getObject(k);
+                obj.translate(roi.getBounds().getMinX(), roi.getBounds().getMinY(), 0);
+        }
+      }
+     
+     public void translateRoiBack( ArrayList<Objects3DPopulation> array, Roi roi) {
+        for (int i=0; i<array.size(); i++){
+            Objects3DPopulation pop = array.get(i);
+            for (int k=0; k<pop.getNbObjects(); k++) {
+                Object3D obj = pop.getObject(k);        
+                obj.translate(roi.getBounds().getMinX(), roi.getBounds().getMinY(), 0);
+            }
+        }
     }
 }

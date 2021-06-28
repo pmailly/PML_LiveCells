@@ -11,6 +11,7 @@ package PML;
 import ij.*;
 import ij.gui.Roi;
 import ij.gui.WaitForUserDialog;
+import ij.io.FileSaver;
 import ij.plugin.PlugIn;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -94,11 +95,13 @@ public class PML_StarDist implements PlugIn {
             IMetadata meta = service.createOMEXMLMetadata();
             ImageProcessorReader reader = new ImageProcessorReader();
             reader.setMetadataStore(meta);
-           
+            
+            // use bioformat to open  images or not
+            boolean bioformat = false;
             // Find channel names , calibration
             reader.setId(imageFiles.get(0));
             cal = pml.findImageCalib(meta);
-            String[] chsName = pml.findChannels(imageFiles.get(0), meta, reader);
+            String[] chsName = pml.findChannels(imageFiles.get(0), meta, reader, bioformat);
             //System.out.println(chsName[0]);
             int[] channelIndex = pml.dialog(chsName);
             cal = pml.getCalib();
@@ -111,8 +114,8 @@ public class PML_StarDist implements PlugIn {
                 int width = meta.getPixelsSizeX(series).getValue();
                 int height = meta.getPixelsSizeY(series).getValue();
                 reader.setSeries(series);
-                
                 ImporterOptions options = new ImporterOptions();
+                if (bioformat){
                 options.setId(f);
                 options.setCrop(false);
                 // open Dapi channel
@@ -120,46 +123,56 @@ public class PML_StarDist implements PlugIn {
                 options.setColorMode(ImporterOptions.COLOR_MODE_GRAYSCALE);
                 options.setCEnd(0, channelIndex[0]);
                 options.setQuiet(true);
+                }
                 
                 int time = reader.getSizeT();
-                //time = 20;
+                time = 2;
                 //ImagePlus[] nucleiMaskArray = new ImagePlus[time];
                 ArrayList<Objects3DPopulation> nucPops = new ArrayList<>();
                 
+                ImagePlus[] imgWholeArray = new ImagePlus[time];
+
                 // Look for nuclei
                  for (int t = 0; t < time; t++) {
                         IJ.showStatus("Reading time " + t + "/"+time);
-                        options.setTBegin(0, t);
-                        options.setTEnd(0, t);
-                        options.setCBegin(0, channelIndex[0]);
-                        options.setCEnd(0, channelIndex[0]);
-                        // Open nucleus channel
-                        ImagePlus imgNuc = BF.openImagePlus(options)[0];
+                        ImagePlus imgNuc;
+                        if (bioformat){
+                            options.setTBegin(0, t);
+                            options.setTEnd(0, t);
+                            options.setCBegin(0, channelIndex[0]);
+                            options.setCEnd(0, channelIndex[0]);
+                           //Open nucleus channel
+                            imgNuc = BF.openImagePlus(options)[0];
+                        } else {
+                            // faster ??
+                            imgNuc = IJ.openImage(inDir+"/"+rootName+"_"+chsName[channelIndex[0]]+"_t"+(t+1)+".TIF");
+                        }
                         imgNuc.setCalibration(cal);          
                        // nucleiMaskArray[t] = pml.stardistNuclei(imgNuc);
+                       imgWholeArray[t] = imgNuc.duplicate();
                        Objects3DPopulation nucPop = pml.stardistNucleiPop(imgNuc);
                        nucPops.add(nucPop);
+                               
                  }
                 
                  // "Track" nuclei: sorted by time to sorted by nuclei index
                  ArrayList<Objects3DPopulation> nuclei = new ArrayList<>();
                  Objects3DPopulation init = nucPops.get(0); // population at t=0
+                 System.out.println("Found init "+init.getNbObjects()+" nuclei");
                  // find one nuclei in pop
                  for (int i = 0; i < init.getNbObjects(); i++) {
                         Object3D nucObj = init.getObject(i);
                         Objects3DPopulation one = pml.trackNucleus(nucObj, nucPops);
-                        if ( one.getNbObjects() >= time*0.5 ) {
+                        if ( one.getNbObjects() >= (time*0.5) ) {
                             nuclei.add(one);
                         }
                 }
                  System.out.println("Keep "+nuclei.size()+" nuclei");
                  
-                  ArrayList<Objects3DPopulation> pmlPopList = new ArrayList<>();
-                  ArrayList<Double> pmlDiffusInt = new ArrayList<>();
-                  ArrayList<DescriptiveStatistics> pmlInt = new ArrayList<>();
-                     
+                 
                  // Work on each nuclei: crop, get pml, track...
                  for (int nucIndex=0; nucIndex<nuclei.size(); nucIndex++) {
+                     
                      Objects3DPopulation nuc = nuclei.get(nucIndex);
                      int[] roilim = pml.getBoundingBoxXY(nuc);
                      // Crop a little larger than found nuclei
@@ -171,32 +184,47 @@ public class PML_StarDist implements PlugIn {
                      else roilim[2] = 0;
                      roilim[3] += extend;
                      // open PML cropped
-                      options.setCrop(true);
-                      options.setCropRegion(0, new Region(roilim[0], roilim[2], roilim[1]-roilim[0], roilim[3]-roilim[2]));
-                      // crop to ROI
-                      Objects3DPopulation tnuc = pml.translateToRoi(nuc, roilim);
-                      
-                      
+                     Roi croproi = new Roi(roilim[0], roilim[2], roilim[1]-roilim[0], roilim[3]-roilim[2]);
+                     // crop to ROI
+                     //Objects3DPopulation tnuc = 
+                             pml.translateToRoi(nuc, roilim);
+                          
                       // nb of times the nuclei is found, not necessarily until the end
                      int nuctime = nuc.getNbObjects();
                      ImagePlus[] imgDiffusArray = new ImagePlus[nuctime];
-                     for (int t = 0; t < nuctime; t++) {                     
+                     ArrayList<Objects3DPopulation> pmlPopList = new ArrayList<>();
+                     ArrayList<Double> pmlDiffusInt = new ArrayList<>();
+                     ArrayList<DescriptiveStatistics> pmlInt = new ArrayList<>();
+                 
+                 
+                     for (int t = 0; t < nuctime; t++) { 
+                        ImagePlus imgPML;
                           // Open pml channel
+                        if (bioformat){ 
                             options.setCBegin(0, channelIndex[1]);
                             options.setCEnd(0, channelIndex[1]);
                             options.setTBegin(0, t);
                             options.setTEnd(0, t);
-                            ImagePlus imgPML = BF.openImagePlus(options)[0];
+                            imgPML = BF.openImagePlus(options)[0];
+                        } else {
+                            imgPML = IJ.openImage(inDir+"/"+rootName+"_"+chsName[channelIndex[1]]+"_t"+(t+1)+".TIF");
+                        }
+                            imgPML.setCalibration(cal);
+
+                            imgPML.setRoi(croproi);
+                            IJ.run(imgPML, "Crop", ""); 
+                            IJ.run(imgPML, "Select None", ""); 
                             imgPML.setCalibration(cal);
                             Objects3DPopulation pmlPop = new Objects3DPopulation();
                            if (pml.trackMate_Detector_Method.equals("DoG"))
-                                pmlPop = pml.findDotsDoG(imgPML, tnuc.getObject(t));
+                                pmlPop = pml.findDotsDoG(imgPML, nuc.getObject(t));
                             else
-                                pmlPop = pml.findDotsLoG(imgPML, tnuc.getObject(t));
+                                pmlPop = pml.findDotsLoG(imgPML, nuc.getObject(t));
                             pmlPopList.add(pmlPop);
-                            pmlDiffusInt.add(pml.pmlDiffus(pmlPop, tnuc.getObject(t), imgPML));
+                            pmlDiffusInt.add(pml.pmlDiffus(pmlPop, nuc.getObject(t), imgPML));
                             pmlInt.add(pml.getPMLIntensity(pmlPop, imgPML));
-                            imgDiffusArray[t] = imgPML;
+                            imgDiffusArray[t] = imgPML.duplicate();
+                            pml.closeImages(imgPML);    
                     }
                     //ImagePlus draw =  pml.drawNucleus(tnuc, imgDiffusArray);
                     //draw.show();
@@ -204,8 +232,13 @@ public class PML_StarDist implements PlugIn {
                     
                      // Save images objects
                     // Align populations
-                    ImagePlus dotBin = pml.alignAndSave(pmlPopList, nuc, imgDiffusArray, outDirResults+rootName, nucIndex);
+                    ImagePlus dotBin = pml.alignAndSave(pmlPopList, nuc, imgDiffusArray, outDirResults+rootName, nucIndex, false);
                     pml.saveDiffusImage(pmlPopList, imgDiffusArray, outDirResults+rootName+"_Diffuse-"+nucIndex+".tif");
+                    
+                    // Attention, This retranslate the populations to whole image position
+                    pml.drawOnWholeImage(pmlPopList, nuc, imgWholeArray, croproi);
+                    imgWholeArray[0].show();
+                    //new WaitForUserDialog("t").show();
                     
                         // Write headers results for results file{
                     FileWriter fileResults = new FileWriter(outDirResults + rootName + "_Nucleus_" + nucIndex +"_results.xls", false);
@@ -236,7 +269,8 @@ public class PML_StarDist implements PlugIn {
                     track.run(dotBin, outDirResults, rootName+"_PMLs-"+nucIndex+".tif", pml.radius, pml.threshold, pml.trackMate_Detector_Method, 1.0, pml.merging_dist, true, true);
                     track.saveResults(resName+"_trackmateSaved.xml", resName+"_trackmateExport.xml", resName+"_trackmateSpotsStats.csv", resName+"_trackmateTrackStats.csv", outDirResults, rootName+"_PMLs-"+nucIndex+".tif");           
                  }
-              
+                 
+                pml.saveWholeImage(imgWholeArray, outDirResults+rootName+"_Objects.tif");
            }
             IJ.showStatus("Process done"); 
         } catch (DependencyException ex) {

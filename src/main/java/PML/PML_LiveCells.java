@@ -95,7 +95,7 @@ public class PML_LiveCells implements PlugIn {
             // Find channel names , calibration
             reader.setId(imageFiles.get(0));
             cal = pml.findImageCalib(meta);
-            String[] chsName = pml.findChannels(imageFiles.get(0), meta, reader);
+            String[] chsName = pml.findChannels(imageFiles.get(0), meta, reader, true);
             //System.out.println(chsName[0]);
             int[] channelIndex = pml.dialog(chsName);
             cal = pml.getCalib();
@@ -205,7 +205,7 @@ public class PML_LiveCells implements PlugIn {
                     if ( failure ) break; 
                     
                     // Align populations
-                    ImagePlus dotBin = pml.alignAndSave(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName, nucIndex);
+                    ImagePlus dotBin = pml.alignAndSave(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName, nucIndex, true);
                     pml.saveDiffusImage(pmlPopList, imgDiffusArray, outDirResults+rootName+"_Diffuse-"+nucIndex+".tif");
                         
                     double meanVol = 0.0;
