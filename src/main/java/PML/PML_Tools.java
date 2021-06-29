@@ -50,6 +50,7 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.ArrayUtils;
 
 import StardistPML.StarDist2D;
+import ij.plugin.RoiEnlarger;
 import ij.plugin.RoiScaler;
 import ij.plugin.frame.RoiManager;
 import java.util.HashMap;
@@ -745,23 +746,39 @@ public class PML_Tools {
     public ImagePlus drawNucleus(Objects3DPopulation pop, ImagePlus[] imArray) {
         ImagePlus[] hyperBin = new ImagePlus[imArray.length];
         // Draw at each time
-        for (int i=0; i<imArray.length; i++)
+        for (int i=0; i<pop.getNbObjects(); i++)
         {
             ImageHandler imhObjects = ImageHandler.wrap(imArray[i]).createSameDimensions();
             pop.getObject(i).draw(imhObjects, 255);
             imhObjects.getImagePlus().setCalibration(cal);
             hyperBin[i] = imhObjects.getImagePlus();
         }
+        // if no objects on some images at the end: Change by putting pop in a map to associate with the slice ?
+        if (pop.getNbObjects()<imArray.length){
+            for (int j=pop.getNbObjects(); j<imArray.length; j++){
+                ImageHandler imhObjects = ImageHandler.wrap(imArray[j]).createSameDimensions();
+                imhObjects.getImagePlus().setCalibration(cal);
+                hyperBin[j] = imhObjects.getImagePlus();
+            }
+        }
         return new Concatenator().concatenate(hyperBin, false);
     }
     
      public ImagePlus drawPMLs(ArrayList<Objects3DPopulation> pmlPopList, ImagePlus[] imgArray) {
        ImagePlus[] hyperPML = new ImagePlus[imgArray.length];
-        for (int i = 0; i < imgArray.length; i++) {
+        for (int i = 0; i < pmlPopList.size(); i++) {
            ImageHandler imh = ImageHandler.wrap(imgArray[i]).createSameDimensions();
            Objects3DPopulation pmlPop = pmlPopList.get(i);
            pmlPop.draw(imh, 255);
            hyperPML[i] = imh.getImagePlus(); 
+        }
+        // if no objects on some images at the end: Change by putting pop in a map to associate with the slice ?
+        if (pmlPopList.size()<imgArray.length){
+        for (int j=pmlPopList.size(); j<imgArray.length; j++){
+            ImageHandler imhObjects = ImageHandler.wrap(imgArray[j]).createSameDimensions();
+            imhObjects.getImagePlus().setCalibration(cal);
+            hyperPML[j] = imhObjects.getImagePlus();
+        }
         }
         return new Concatenator().concatenate(hyperPML, false);
     }
@@ -781,7 +798,9 @@ public class PML_Tools {
      }
      
      public void saveWholeImage(ImagePlus[] imgs, String fileName) {
-        ImagePlus img = new Concatenator().concatenate(imgs, false);
+        
+         ImagePlus img = new Concatenator().concatenate(imgs, false);
+        
         FileSaver fileImg = new FileSaver(img);
         fileImg.saveAsTiff(fileName);
         closeImages(img);
@@ -847,14 +866,17 @@ public class PML_Tools {
          
         // Save images objects 
         ImageCalculator ic = new ImageCalculator();
-        ic.run("Add stack", imgnucl, imgpml);
-        closeImages(imgpml);
         for (int i=0; i<imgArray.length; i++){
-            ImagePlus frame = new Duplicator().run(imgnucl, i+1, i+1, 1, imgnucl.getNSlices(), 1, 1);
-            ic.run("Add stack", imgArray[i], frame);
-            closeImages(frame);
+            ImagePlus framenuc = new Duplicator().run(imgnucl, i+1, i+1, 1, imgnucl.getNSlices(), 1, 1);
+            ImagePlus framepml = new Duplicator().run(imgpml, i+1, i+1, 1, imgnucl.getNSlices(), 1, 1);
+            ic.run("Add stack", framenuc, framepml);
+            closeImages(framepml);
+        
+            ic.run("Add stack", imgArray[i], framenuc);
+            closeImages(framenuc);
         }     
         closeImages(imgnucl);
+        closeImages(imgpml);
     }
     
     
@@ -964,7 +986,9 @@ public class PML_Tools {
                         // contains part of the nucleus
                         if (stat.mean > 10)
                         {
-                            Roi scaled = scaler.scale(cur, factxy, factxy, false);   
+                            RoiEnlarger re = new RoiEnlarger();
+                            Roi shrink = re.enlarge(cur, -1);  // very small shrink or larger and then compensate ??
+                            Roi scaled = scaler.scale(shrink, factxy, factxy, false);   
                             ip.setSlice(cur.getPosition());
                             scaled.setPosition(cur.getPosition());
                             ip.setRoi(scaled);
@@ -1102,8 +1126,8 @@ public class PML_Tools {
         Objects3DPopulation nucl = new Objects3DPopulation();    
         for (int i=0; i<pop.size(); i++) {
             Object3D closest = (pop.get(i)).closestCenter(obj.getCenterAsPoint());
-            // threshold distance to loose the nuclei
-            if (obj.distCenterUnit(closest) > 2) {
+            // threshold distance to loose the nuclei (not aligned image so can move)
+            if (obj.distCenterUnit(closest) > 4) {
                 return nucl;
             }
             // within distance, continue

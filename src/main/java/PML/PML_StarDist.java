@@ -108,7 +108,7 @@ public class PML_StarDist implements PlugIn {
             if (channelIndex == null)
                 return;
             for (String f : imageFiles) {
-               String rootName = FilenameUtils.getBaseName(f);
+                String rootName = FilenameUtils.getBaseName(f);
                 reader.setId(f);
                 int series = reader.getSeries();
                 int width = meta.getPixelsSizeX(series).getValue();
@@ -126,8 +126,7 @@ public class PML_StarDist implements PlugIn {
                 }
                 
                 int time = reader.getSizeT();
-                time = 2;
-                //ImagePlus[] nucleiMaskArray = new ImagePlus[time];
+                time = 10;
                 ArrayList<Objects3DPopulation> nucPops = new ArrayList<>();
                 
                 ImagePlus[] imgWholeArray = new ImagePlus[time];
@@ -147,9 +146,10 @@ public class PML_StarDist implements PlugIn {
                             // faster ??
                             imgNuc = IJ.openImage(inDir+"/"+rootName+"_"+chsName[channelIndex[0]]+"_t"+(t+1)+".TIF");
                         }
-                        imgNuc.setCalibration(cal);          
-                       // nucleiMaskArray[t] = pml.stardistNuclei(imgNuc);
+                       imgNuc.setCalibration(cal);          
                        imgWholeArray[t] = imgNuc.duplicate();
+                       IJ.run(imgWholeArray[t], "8-bit", ""); // for smaller file size, only used for drawing
+                       IJ.run(imgWholeArray[t], "Multiply...", "value=0.25 stack"); // put to low intensity to not interfere with drawings
                        Objects3DPopulation nucPop = pml.stardistNucleiPop(imgNuc);
                        nucPops.add(nucPop);
                                
@@ -163,7 +163,7 @@ public class PML_StarDist implements PlugIn {
                  for (int i = 0; i < init.getNbObjects(); i++) {
                         Object3D nucObj = init.getObject(i);
                         Objects3DPopulation one = pml.trackNucleus(nucObj, nucPops);
-                        if ( one.getNbObjects() >= (time*0.5) ) {
+                        if ( one.getNbObjects() >= (time*0.25) ) {
                             nuclei.add(one);
                         }
                 }
@@ -185,9 +185,8 @@ public class PML_StarDist implements PlugIn {
                      roilim[3] += extend;
                      // open PML cropped
                      Roi croproi = new Roi(roilim[0], roilim[2], roilim[1]-roilim[0], roilim[3]-roilim[2]);
-                     // crop to ROI
-                     //Objects3DPopulation tnuc = 
-                             pml.translateToRoi(nuc, roilim);
+                     // move nucleus coordinates to ROI coordinates
+                     pml.translateToRoi(nuc, roilim);
                           
                       // nb of times the nuclei is found, not necessarily until the end
                      int nuctime = nuc.getNbObjects();
@@ -195,7 +194,6 @@ public class PML_StarDist implements PlugIn {
                      ArrayList<Objects3DPopulation> pmlPopList = new ArrayList<>();
                      ArrayList<Double> pmlDiffusInt = new ArrayList<>();
                      ArrayList<DescriptiveStatistics> pmlInt = new ArrayList<>();
-                 
                  
                      for (int t = 0; t < nuctime; t++) { 
                         ImagePlus imgPML;
@@ -210,7 +208,7 @@ public class PML_StarDist implements PlugIn {
                             imgPML = IJ.openImage(inDir+"/"+rootName+"_"+chsName[channelIndex[1]]+"_t"+(t+1)+".TIF");
                         }
                             imgPML.setCalibration(cal);
-
+                              // crop to ROI
                             imgPML.setRoi(croproi);
                             IJ.run(imgPML, "Crop", ""); 
                             IJ.run(imgPML, "Select None", ""); 
@@ -238,9 +236,8 @@ public class PML_StarDist implements PlugIn {
                     // Attention, This retranslate the populations to whole image position
                     pml.drawOnWholeImage(pmlPopList, nuc, imgWholeArray, croproi);
                     imgWholeArray[0].show();
-                    //new WaitForUserDialog("t").show();
                     
-                        // Write headers results for results file{
+                    // Write headers results for results file{
                     FileWriter fileResults = new FileWriter(outDirResults + rootName + "_Nucleus_" + nucIndex +"_results.xls", false);
                     outPutResults = new BufferedWriter(fileResults);
                     outPutResults.write("Time\tNucleus Volume\tPML dot number\tNucleus Diffuse IntDensity\tPML Mean dots IntDensity\tPML dots Mean Volume"
