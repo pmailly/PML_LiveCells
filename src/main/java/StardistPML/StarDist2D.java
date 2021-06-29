@@ -263,7 +263,7 @@ public class StarDist2D extends StarDist2DBase implements Command {
             }
 
             final HashMap<String, Object> paramsNMS = new HashMap<>();
-            paramsNMS.put("probThresh", 0.6);
+            paramsNMS.put("probThresh", 0.55);
             paramsNMS.put("nmsThresh", 0.4);
             paramsNMS.put("excludeBoundary", 2);
             paramsNMS.put("roiPosition", roiPositionActive);

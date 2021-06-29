@@ -859,16 +859,16 @@ public class PML_Tools {
     public void drawOnWholeImage(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, Roi roi) {
         translateRoiBack(nucPop, roi);
         ImagePlus imgnucl = drawNucleus(nucPop, imgArray);
-        IJ.run(imgnucl, "Multiply...", "value=0.5 stack");
         // draw and align PMLs
         translateRoiBack(pmlPopList, roi);
         ImagePlus imgpml = drawPMLs(pmlPopList, imgArray);
-         
         // Save images objects 
         ImageCalculator ic = new ImageCalculator();
         for (int i=0; i<imgArray.length; i++){
-            ImagePlus framenuc = new Duplicator().run(imgnucl, i+1, i+1, 1, imgnucl.getNSlices(), 1, 1);
-            ImagePlus framepml = new Duplicator().run(imgpml, i+1, i+1, 1, imgnucl.getNSlices(), 1, 1);
+            ImagePlus framenuc = new Duplicator().run(imgnucl, 1, 1, 1, imgnucl.getNSlices(), i+1, i+1);
+            
+            ImagePlus framepml = new Duplicator().run(imgpml, 1, 1, 1, imgpml.getNSlices(), i+1, i+1);
+            IJ.run(framenuc, "Multiply...", "value=0.5 stack");        
             ic.run("Add stack", framenuc, framepml);
             closeImages(framepml);
         
@@ -987,7 +987,7 @@ public class PML_Tools {
                         if (stat.mean > 10)
                         {
                             RoiEnlarger re = new RoiEnlarger();
-                            Roi shrink = re.enlarge(cur, -1);  // very small shrink or larger and then compensate ??
+                            Roi shrink = re.enlarge(cur, -2);  // very small shrink or larger and then compensate ??
                             Roi scaled = scaler.scale(shrink, factxy, factxy, false);   
                             ip.setSlice(cur.getPosition());
                             scaled.setPosition(cur.getPosition());
@@ -1127,7 +1127,7 @@ public class PML_Tools {
         for (int i=0; i<pop.size(); i++) {
             Object3D closest = (pop.get(i)).closestCenter(obj.getCenterAsPoint());
             // threshold distance to loose the nuclei (not aligned image so can move)
-            if (obj.distCenterUnit(closest) > 4) {
+            if (obj.distCenterUnit(closest) > 5) {
                 return nucl;
             }
             // within distance, continue

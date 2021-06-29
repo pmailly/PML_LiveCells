@@ -126,7 +126,7 @@ public class PML_StarDist implements PlugIn {
                 }
                 
                 int time = reader.getSizeT();
-                time = 10;
+                //time = 5;
                 ArrayList<Objects3DPopulation> nucPops = new ArrayList<>();
                 
                 ImagePlus[] imgWholeArray = new ImagePlus[time];
@@ -235,7 +235,7 @@ public class PML_StarDist implements PlugIn {
                     
                     // Attention, This retranslate the populations to whole image position
                     pml.drawOnWholeImage(pmlPopList, nuc, imgWholeArray, croproi);
-                    imgWholeArray[0].show();
+                    //imgWholeArray[0].show();
                     
                     // Write headers results for results file{
                     FileWriter fileResults = new FileWriter(outDirResults + rootName + "_Nucleus_" + nucIndex +"_results.xls", false);
