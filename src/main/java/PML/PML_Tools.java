@@ -1127,7 +1127,7 @@ public class PML_Tools {
         for (int i=0; i<pop.size(); i++) {
             Object3D closest = (pop.get(i)).closestCenter(obj.getCenterAsPoint());
             // threshold distance to loose the nuclei (not aligned image so can move)
-            if (obj.distCenterUnit(closest) > 5) {
+            if (obj.distCenterUnit(closest) > 6) {
                 return nucl;
             }
             // within distance, continue
