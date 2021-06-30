@@ -743,15 +743,29 @@ public class PML_Tools {
     
      
      
-    public ImagePlus drawNucleus(Objects3DPopulation pop, ImagePlus[] imArray) {
+    public ImagePlus drawNucleus(Objects3DPopulation pop, ImagePlus[] imArray, boolean label, int nnuc) {
         ImagePlus[] hyperBin = new ImagePlus[imArray.length];
         // Draw at each time
         for (int i=0; i<pop.getNbObjects(); i++)
         {
             ImageHandler imhObjects = ImageHandler.wrap(imArray[i]).createSameDimensions();
-            pop.getObject(i).draw(imhObjects, 255);
+            pop.getObject(i).draw(imhObjects, 255); 
             imhObjects.getImagePlus().setCalibration(cal);
             hyperBin[i] = imhObjects.getImagePlus();
+            if ( label ){
+                Object3D ob = pop.getObject(i);
+                //double meanrad = Math.pow(ob.getVolumePixels()*3.0/(4.0*Math.PI), 1.0/3.0); // add mean radius to be outside object to write label
+                double meanrad = 0; // write in the center
+                int z = (int) ob.getCenterZ();
+                int x = (int) (ob.getCenterX() + meanrad*1.3);
+                int y = (int) (ob.getCenterY() + meanrad*1.3);
+                hyperBin[i].setSlice(z);
+                ImageProcessor proc = hyperBin[i].getProcessor();
+                proc.setColor(255);
+                proc.setFontSize(30);
+                proc.drawString(""+nnuc, x, y);
+                hyperBin[i].updateAndDraw();
+            }
         }
         // if no objects on some images at the end: Change by putting pop in a map to associate with the slice ?
         if (pop.getNbObjects()<imArray.length){
@@ -811,7 +825,7 @@ public class PML_Tools {
      */
     public ImagePlus alignAndSave(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, String root, int index, boolean saveObj) {
 
-        ImagePlus unnucl = drawNucleus(nucPop, imgArray);
+        ImagePlus unnucl = drawNucleus(nucPop, imgArray, false, 0);
         // Get transformations to do to align stack
         ArrayList<Transformer> trans = new StackReg_Plus().stackRegister(stackProj(unnucl));
         
@@ -856,17 +870,16 @@ public class PML_Tools {
      /**
      * Save image objects
      */
-    public void drawOnWholeImage(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, Roi roi) {
+    public void drawOnWholeImage(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, Roi roi, int index) {
         translateRoiBack(nucPop, roi);
-        ImagePlus imgnucl = drawNucleus(nucPop, imgArray);
+        ImagePlus imgnucl = drawNucleus(nucPop, imgArray, true, index);
         // draw and align PMLs
         translateRoiBack(pmlPopList, roi);
         ImagePlus imgpml = drawPMLs(pmlPopList, imgArray);
         // Save images objects 
         ImageCalculator ic = new ImageCalculator();
         for (int i=0; i<imgArray.length; i++){
-            ImagePlus framenuc = new Duplicator().run(imgnucl, 1, 1, 1, imgnucl.getNSlices(), i+1, i+1);
-            
+            ImagePlus framenuc = new Duplicator().run(imgnucl, 1, 1, 1, imgnucl.getNSlices(), i+1, i+1);  
             ImagePlus framepml = new Duplicator().run(imgpml, 1, 1, 1, imgpml.getNSlices(), i+1, i+1);
             IJ.run(framenuc, "Multiply...", "value=0.5 stack");        
             ic.run("Add stack", framenuc, framepml);
@@ -989,7 +1002,7 @@ public class PML_Tools {
                             RoiEnlarger re = new RoiEnlarger();
                             Roi shrink = re.enlarge(cur, -2);  // very small shrink or larger and then compensate ??
                             Roi scaled = scaler.scale(shrink, factxy, factxy, false);   
-                            ip.setSlice(cur.getPosition());
+                            ip.setT(cur.getPosition());
                             scaled.setPosition(cur.getPosition());
                             ip.setRoi(scaled);
                             //rm.addRoi(scaled);
@@ -1048,10 +1061,24 @@ public class PML_Tools {
     
         // try to get rid of extreme slices without nuclei
         ImagePlus globalBin = new Duplicator().run(resized);
-        globalBin.setT(globalBin.getNFrames()/2);
-        IJ.setAutoThreshold(globalBin, "Otsu dark");
+        if ( globalBin.getNFrames()>1) globalBin.setDimensions(1, globalBin.getNFrames(), 1);
+        //globalBin.setT(globalBin.getNFrames()/2);
+        IJ.setAutoThreshold(globalBin, "Otsu dark stack");
         Prefs.blackBackground = false;
         IJ.run(globalBin, "Convert to Mask", "method=Otsu background=Dark stack");
+        
+        globalBin.setSlice(globalBin.getNSlices()/2);
+        ImageStatistics stat = globalBin.getStatistics();
+        // threshold didn't work well, very few pixels found
+        if ( stat.mean < 10 ) {
+            closeImages(globalBin);
+            globalBin = new Duplicator().run(resized);
+            if ( globalBin.getNFrames()>1) globalBin.setDimensions(1, globalBin.getNFrames(), 1);
+            IJ.setAutoThreshold(globalBin, "Default dark stack");
+            Prefs.blackBackground = false;
+            IJ.run(globalBin, "Convert to Mask", "method=Default background=Dark stack");
+        }
+        
         //globalBin.show();
         //new WaitForUserDialog("t").show();
     
@@ -1060,7 +1087,7 @@ public class PML_Tools {
         closeImages(imgNuc);
         
         makeNucleiResizeMask(back, 1.0/factor, globalBin);
-        back.setDimensions(1, back.getNSlices(), 1);
+        if (back.getNFrames()>1) back.setDimensions(1, back.getNFrames(), 1);
         back.setCalibration(cal);
         // back.show();
        // new WaitForUserDialog("test").show(); 

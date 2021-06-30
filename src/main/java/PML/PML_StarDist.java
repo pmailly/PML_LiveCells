@@ -126,7 +126,7 @@ public class PML_StarDist implements PlugIn {
                 }
                 
                 int time = reader.getSizeT();
-                //time = 5;
+                //time = 15;
                 ArrayList<Objects3DPopulation> nucPops = new ArrayList<>();
                 
                 ImagePlus[] imgWholeArray = new ImagePlus[time];
@@ -163,7 +163,7 @@ public class PML_StarDist implements PlugIn {
                  for (int i = 0; i < init.getNbObjects(); i++) {
                         Object3D nucObj = init.getObject(i);
                         Objects3DPopulation one = pml.trackNucleus(nucObj, nucPops);
-                        if ( one.getNbObjects() >= (time*0.25) ) {
+                        if ( one.getNbObjects() >= Math.min(time*0.25,20) ) {
                             nuclei.add(one);
                         }
                 }
@@ -234,7 +234,7 @@ public class PML_StarDist implements PlugIn {
                     pml.saveDiffusImage(pmlPopList, imgDiffusArray, outDirResults+rootName+"_Diffuse-"+nucIndex+".tif");
                     
                     // Attention, This retranslate the populations to whole image position
-                    pml.drawOnWholeImage(pmlPopList, nuc, imgWholeArray, croproi);
+                    pml.drawOnWholeImage(pmlPopList, nuc, imgWholeArray, croproi, nucIndex);
                     //imgWholeArray[0].show();
                     
                     // Write headers results for results file{
