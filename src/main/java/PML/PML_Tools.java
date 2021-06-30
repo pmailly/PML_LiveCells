@@ -770,9 +770,7 @@ public class PML_Tools {
         // if no objects on some images at the end: Change by putting pop in a map to associate with the slice ?
         if (pop.getNbObjects()<imArray.length){
             for (int j=pop.getNbObjects(); j<imArray.length; j++){
-                ImageHandler imhObjects = ImageHandler.wrap(imArray[j]).createSameDimensions();
-                imhObjects.getImagePlus().setCalibration(cal);
-                hyperBin[j] = imhObjects.getImagePlus();
+                hyperBin[j] = imArray[j];
             }
         }
         return new Concatenator().concatenate(hyperBin, false);
@@ -788,11 +786,9 @@ public class PML_Tools {
         }
         // if no objects on some images at the end: Change by putting pop in a map to associate with the slice ?
         if (pmlPopList.size()<imgArray.length){
-        for (int j=pmlPopList.size(); j<imgArray.length; j++){
-            ImageHandler imhObjects = ImageHandler.wrap(imgArray[j]).createSameDimensions();
-            imhObjects.getImagePlus().setCalibration(cal);
-            hyperPML[j] = imhObjects.getImagePlus();
-        }
+          for (int j=pmlPopList.size(); j<imgArray.length; j++){
+            hyperPML[j] = imgArray[j];
+	  }
         }
         return new Concatenator().concatenate(hyperPML, false);
     }
