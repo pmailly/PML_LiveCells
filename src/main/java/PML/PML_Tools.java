@@ -814,7 +814,8 @@ public class PML_Tools {
      public void saveWholeImage(ImagePlus[] imgs, String fileName) {
         
          ImagePlus img = new Concatenator().concatenate(imgs, false);
-        
+        double factor = 750.0/img.getWidth();  // diminue la taille pour pas enregistrer une image trop big
+        ImagePlus resized = img.resize((int)(img.getWidth()*factor), (int)(img.getHeight()*factor), "bilinear");
         FileSaver fileImg = new FileSaver(img);
         fileImg.saveAsTiff(fileName);
         closeImages(img);
