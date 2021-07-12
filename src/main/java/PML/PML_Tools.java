@@ -1078,8 +1078,7 @@ public class PML_Tools {
             IJ.setAutoThreshold(globalBin, "Default dark stack");
             Prefs.blackBackground = false;
             IJ.run(globalBin, "Convert to Mask", "method=Default background=Dark stack");
-        }
-        
+        }   
         //globalBin.show();
         //new WaitForUserDialog("t").show();
     
@@ -1090,8 +1089,6 @@ public class PML_Tools {
         makeNucleiResizeMask(back, 1.0/factor, globalBin);
         if (back.getNFrames()>1) back.setDimensions(1, back.getNFrames(), 1);
         back.setCalibration(cal);
-        // back.show();
-       // new WaitForUserDialog("test").show(); 
         
        Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(back).getObjectsWithinVolume(minNuc, maxNuc, true));
        closeImages(back);
