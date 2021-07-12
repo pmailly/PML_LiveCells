@@ -4,19 +4,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.stream.IntStream;
-
-import org.scijava.ItemIO;
-import org.scijava.ItemVisibility;
 import org.scijava.command.Command;
-import org.scijava.menu.MenuConstants;
-import org.scijava.plugin.Menu;
-import org.scijava.plugin.Parameter;
-import org.scijava.plugin.Plugin;
-import org.scijava.widget.Button;
-import org.scijava.widget.ChoiceWidget;
-import org.scijava.widget.NumberWidget;
-
-//import de.csbdresden.CommandFromMacro;
 import ij.IJ;
 import ij.ImagePlus;
 import net.imagej.Dataset;
@@ -26,64 +14,37 @@ import net.imagej.axis.AxisType;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.view.Views;
+import org.scijava.ItemIO;
+import org.scijava.plugin.Parameter;
+import org.scijava.plugin.Plugin;
 
-@Plugin(type = Command.class, label = "StarDist 2D NMS", menu = {
-        @Menu(label = MenuConstants.PLUGINS_LABEL, weight = MenuConstants.PLUGINS_WEIGHT, mnemonic = MenuConstants.PLUGINS_MNEMONIC),
-        @Menu(label = "StarDist"),
-        @Menu(label = "Other"),
-        @Menu(label = "StarDist 2D NMS (postprocessing only)", weight = 2)
-})
+@Plugin(type = Command.class, label = "PML - StarDist 2D NMS")
 public class StarDist2DNMS extends StarDist2DBase implements Command {
 
-    @Parameter(label=Opt.PROB_IMAGE)
+    @Parameter(label="Probability/Score Image")
     private Dataset prob;
-
-    @Parameter(label=Opt.DIST_IMAGE)
+    @Parameter(label="Distance Image")
     private Dataset dist;
-
-    @Parameter(label=Opt.LABEL_IMAGE, type=ItemIO.OUTPUT)
+    @Parameter(label="Label Image", type=ItemIO.OUTPUT)
     private Dataset label;
-
-    @Parameter(type=ItemIO.OUTPUT)
+    @Parameter(label="polygons",type=ItemIO.OUTPUT)
     private Candidates polygons;
-
-    @Parameter(label=Opt.PROB_THRESH, stepSize="0.05", min="0", max="1", style=NumberWidget.SLIDER_STYLE)
-    private double probThresh = (double) Opt.getDefault(Opt.PROB_THRESH);
-
-    @Parameter(label=Opt.NMS_THRESH, stepSize="0.05", min="0", max="1", style=NumberWidget.SLIDER_STYLE)
-    private double nmsThresh = (double) Opt.getDefault(Opt.NMS_THRESH);
-
-    @Parameter(label=Opt.OUTPUT_TYPE, choices={Opt.OUTPUT_ROI_MANAGER, Opt.OUTPUT_LABEL_IMAGE, Opt.OUTPUT_BOTH}, style=ChoiceWidget.RADIO_BUTTON_HORIZONTAL_STYLE)
-    private String outputType = (String) Opt.getDefault(Opt.OUTPUT_TYPE);
-
-    // ---------
-
-    @Parameter(visibility=ItemVisibility.MESSAGE)
-    private final String advMsg = "<html><u>Advanced</u></html>";
-
-    @Parameter(label=Opt.EXCLUDE_BNDRY, min="0", stepSize="1")
-    private int excludeBoundary = (int) Opt.getDefault(Opt.EXCLUDE_BNDRY);
-    
-    @Parameter(label=Opt.ROI_POSITION, choices={Opt.ROI_POSITION_STACK, Opt.ROI_POSITION_HYPERSTACK}, style=ChoiceWidget.RADIO_BUTTON_HORIZONTAL_STYLE)
-    private String roiPosition = (String) Opt.getDefault(Opt.ROI_POSITION);
-
-    @Parameter(label=Opt.VERBOSE)
-    private boolean verbose = (boolean) Opt.getDefault(Opt.VERBOSE);
-
-    @Parameter(label=Opt.RESTORE_DEFAULTS, callback="restoreDefaults")
-    private Button restoreDefaults;
-
-    // ---------
-
-    private void restoreDefaults() {
-        probThresh = (double) Opt.getDefault(Opt.PROB_THRESH);
-        nmsThresh = (double) Opt.getDefault(Opt.NMS_THRESH);
-        outputType = (String) Opt.getDefault(Opt.OUTPUT_TYPE);
-        excludeBoundary = (int) Opt.getDefault(Opt.EXCLUDE_BNDRY);
-        roiPosition = (String) Opt.ROI_POSITION_STACK;
-        verbose = (boolean) Opt.getDefault(Opt.VERBOSE);
-    }
-
+    @Parameter(label="probThresh", stepSize="0.05", min="0", max="1")
+    private double probThresh = 0.5;
+    @Parameter(label="nmsThresh", stepSize="0.05", min="0", max="1")
+    private double nmsThresh = 0.4;
+    @Parameter(label="outputType", choices={"ROI Manager", "Label Image", "Both"})
+    private String outputType = "ROI Manager";
+     // ---------
+    @Parameter(label="excludeBoundary", min="0", stepSize="1")
+    private int excludeBoundary = 2;
+    @Parameter(label="roiPosition", choices={"Stack", "Hyperstack"})
+    private String roiPosition = "Automatic";
+   @Parameter(label="verbose")
+    private boolean verbose = false;
+   
+   private String probImage = "Probability/Score Image";
+   private String distImage = "Distance Image";
     // ---------
 
     @Override
@@ -130,42 +91,42 @@ public class StarDist2DNMS extends StarDist2DBase implements Command {
 
         if (!( (prob.numDimensions() == 2 && probAxes.containsAll(Arrays.asList(Axes.X, Axes.Y))) ||
                (prob.numDimensions() == 3 && probAxes.containsAll(Arrays.asList(Axes.X, Axes.Y, Axes.TIME))) ))
-            return showError(String.format("%s must be a 2D image or timelapse.", Opt.PROB_IMAGE));
+            return showError(String.format("%s must be a 2D image or timelapse.", probImage));
 
         if (!( (dist.numDimensions() == 3 && distAxes.containsAll(Arrays.asList(Axes.X, Axes.Y, Axes.CHANNEL))            && dist.getChannels() >= 3) ||
                (dist.numDimensions() == 4 && distAxes.containsAll(Arrays.asList(Axes.X, Axes.Y, Axes.CHANNEL, Axes.TIME)) && dist.getChannels() >= 3) ))
-            return showError(String.format("%s must be a 2D image or timelapse with at least three channels.", Opt.DIST_IMAGE));
+            return showError(String.format("%s must be a 2D image or timelapse with at least three channels.", distImage));
 
         if ((prob.numDimensions() + 1) != dist.numDimensions())
-            return showError(String.format("Axes of %s and %s not compatible.", Opt.PROB_IMAGE, Opt.DIST_IMAGE));
+            return showError(String.format("Axes of %s and %s not compatible.", probImage, distImage));
 
         if (prob.getWidth() != dist.getWidth() || prob.getHeight() != dist.getHeight())
-            return showError(String.format("Width or height of %s and %s differ.", Opt.PROB_IMAGE, Opt.DIST_IMAGE));
+            return showError(String.format("Width or height of %s and %s differ.", probImage, distImage));
 
         if (prob.getFrames() != dist.getFrames())
-            return showError(String.format("Number of frames of %s and %s differ.", Opt.PROB_IMAGE, Opt.DIST_IMAGE));
+            return showError(String.format("Number of frames of %s and %s differ.", probImage, distImage));
 
         final AxisType[] probAxesArray = probAxes.stream().toArray(AxisType[]::new);
         final AxisType[] distAxesArray = distAxes.stream().toArray(AxisType[]::new);
         if (!( probAxesArray[0] == Axes.X && probAxesArray[1] == Axes.Y ))
-            return showError(String.format("First two axes of %s must be a X and Y.", Opt.PROB_IMAGE));
+            return showError(String.format("First two axes of %s must be a X and Y.", probImage));
         if (!( distAxesArray[0] == Axes.X && distAxesArray[1] == Axes.Y ))
-            return showError(String.format("First two axes of %s must be a X and Y.", Opt.DIST_IMAGE));
+            return showError(String.format("First two axes of %s must be a X and Y.", distImage));
 
         if (!(0 <= nmsThresh && nmsThresh <= 1))
-            return showError(String.format("%s must be between 0 and 1.", Opt.NMS_THRESH));
+            return showError(String.format("%s must be between 0 and 1.", "Overlap Threshold"));
 
         if (excludeBoundary < 0)
-            return showError(String.format("%s must be >= 0", Opt.EXCLUDE_BNDRY));
+            return showError(String.format("%s must be >= 0", "Exclude Boundary"));
 
-        if (!(outputType.equals(Opt.OUTPUT_ROI_MANAGER) || outputType.equals(Opt.OUTPUT_LABEL_IMAGE) || outputType.equals(Opt.OUTPUT_BOTH) || outputType.equals(Opt.OUTPUT_POLYGONS)))
-            return showError(String.format("%s must be one of {\"%s\", \"%s\", \"%s\"}.", Opt.OUTPUT_TYPE, Opt.OUTPUT_ROI_MANAGER, Opt.OUTPUT_LABEL_IMAGE, Opt.OUTPUT_BOTH));
+        if (!(outputType.equals("ROI Manager") || outputType.equals("Label Image") || outputType.equals("Both") || outputType.equals("Polygons")))
+            return showError(String.format("%s must be one of {\"%s\", \"%s\", \"%s\"}.", "Output Type", "ROI Manager", "Label Image", "Both"));
 
-        if (outputType.equals(Opt.OUTPUT_POLYGONS) && probAxes.contains(Axes.TIME))
-            return showError(String.format("Timelapse not supported for output type \"%s\"", Opt.OUTPUT_POLYGONS));
+        if (outputType.equals("Polygons") && probAxes.contains(Axes.TIME))
+            return showError(String.format("Timelapse not supported for output type \"%s\"", "Polygons"));
 
-        if (!(roiPosition.equals(Opt.ROI_POSITION_STACK) || roiPosition.equals(Opt.ROI_POSITION_HYPERSTACK)))
-            return showError(String.format("%s must be one of {\"%s\", \"%s\"}.", Opt.ROI_POSITION, Opt.ROI_POSITION_STACK, Opt.ROI_POSITION_HYPERSTACK));        
+        if (!(roiPosition.equals("Stack") || roiPosition.equals("Hyperstack")))
+            return showError(String.format("%s must be one of {\"%s\", \"%s\"}.", "Roi position", "Stack", "Hyperstack"));        
         
         return true;
     }
@@ -178,7 +139,7 @@ public class StarDist2DNMS extends StarDist2DBase implements Command {
 
     @Override
     protected ImagePlus createLabelImage() {
-        return IJ.createImage(Opt.LABEL_IMAGE, "16-bit black", (int)prob.getWidth(), (int)prob.getHeight(), 1, 1, (int)prob.getFrames());
+        return IJ.createImage("Label Image", "16-bit black", (int)prob.getWidth(), (int)prob.getHeight(), 1, 1, (int)prob.getFrames());
     }
 
 
