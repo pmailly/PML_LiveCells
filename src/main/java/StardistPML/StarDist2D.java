@@ -1,9 +1,5 @@
 package StardistPML;
 
-//import static de.csbdresden.stardist.StarDist2DModel.MODELS;
-//import static de.csbdresden.stardist.StarDist2DModel.MODEL_DSB2018_HEAVY_AUGMENTATION;
-//import static de.csbdresden.stardist.StarDist2DModel.MODEL_DSB2018_PAPER;
-//import static de.csbdresden.stardist.StarDist2DModel.MODEL_HE_HEAVY_AUGMENTATION;
 
 import java.io.File;
 import java.io.IOException;
@@ -29,11 +25,10 @@ import org.scijava.widget.Button;
 import org.scijava.widget.ChoiceWidget;
 import org.scijava.widget.NumberWidget;
 
-//import de.csbdresden.CommandFromMacro;
+
 import ij.IJ;
 import ij.ImagePlus;
 import net.imagej.Dataset;
-import net.imagej.DatasetService;
 import net.imagej.ImageJ;
 import net.imagej.ImgPlus;
 import net.imagej.axis.Axes;
@@ -45,14 +40,13 @@ import net.imglib2.util.Pair;
 import net.imglib2.util.ValuePair;
 import net.imglib2.view.Views;
 
-@Plugin(type = Command.class, label = "StarDist 2D", menu = {
+@Plugin(type = Command.class, label = "PMLStarDist2D", menu = {
         @Menu(label = MenuConstants.PLUGINS_LABEL, weight = MenuConstants.PLUGINS_WEIGHT, mnemonic = MenuConstants.PLUGINS_MNEMONIC),
-        @Menu(label = "StarDist"),
-        @Menu(label = "StarDist 2D", weight = 1)
+        @Menu(label = "PMLStarDist"),
+        @Menu(label = "PMLStarDist 2D", weight = 1)
 })
 public class StarDist2D extends StarDist2DBase implements Command {
-    
-    
+     
     
     @Parameter(label="", visibility=ItemVisibility.MESSAGE, initializer="checkForCSBDeep")
     private final String msgTitle = "<html>" +
@@ -402,7 +396,6 @@ public class StarDist2D extends StarDist2DBase implements Command {
 
         Dataset input = ij.scifio().datasetIO().open(StarDist2D.class.getClassLoader().getResource("yeast_crop.tif").getFile());
 //        Dataset input = ij.scifio().datasetIO().open(StarDist2D.class.getClassLoader().getResource("yeast_timelapse.tif").getFile());
-//        Dataset input = ij.scifio().datasetIO().open(StarDist2D.class.getClassLoader().getResource("patho_hyperstack.tif").getFile());
         ij.ui().show(input);
         
 //        Recorder recorder = new Recorder();
