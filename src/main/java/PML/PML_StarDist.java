@@ -255,7 +255,7 @@ public class PML_StarDist implements PlugIn {
                         meanVol += pmlVolMean;        
                         double pmlVolStd = pml.getPMLVolume(pmlPop).getStandardDeviation();
                         double pmlVolTotal = pml.getPMLVolume(pmlPop).getSum();
-                        outPutResults.write(i+"\t"+nucVol+"\t"+pmlPop.getNbObjects()+"\t"+pmlDiffusInt.get(i)+"\t"+pmlInt.get(i).getMean()+"\t"
+                        outPutResults.write((i+1)+"\t"+nucVol+"\t"+pmlPop.getNbObjects()+"\t"+pmlDiffusInt.get(i)+"\t"+pmlInt.get(i).getMean()+"\t"
                                 +pmlInt.get(i).getStandardDeviation()+"\t"+pmlVolMean+"\t"+pmlVolStd+"\t"+pmlVolTotal+"\n"); 
                         outPutResults.flush();
                     }                    
