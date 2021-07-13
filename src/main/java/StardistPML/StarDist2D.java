@@ -275,5 +275,41 @@ public class StarDist2D extends StarDist2DBase implements Command {
              IJ.error("Error "+e.toString());
          }       
     }
+    
+    public void setParams(double percentileBottomVar, double percentileTopVar, double probThreshVar, double overlapThreshVar, String model, String outPutType){
+    /*try {*/
+
+    percentileBottom = percentileBottomVar;
+    percentileTop = percentileTopVar;
+    probThresh = probThreshVar;
+    nmsThresh = overlapThreshVar;
+    outputType = outPutType;
+    modelUrl = StarDist2D.class.getClassLoader().getResource("models/"+model);
+    /*switch(modelType){
+        case "file" :
+            paramCNN.put("modelFile", model);
+            break;
+        case "url" :
+            paramCNN.put("modelUrl", model);
+            break;
+        default:
+            final StarDist2DModel pretrainedModel = new StarDist2DModel(StarDist2DModel.class.getClassLoader().getResource("models"+File.pathSeparator+"dsb2018_heavy_augment.zip"), 0.479071, 0.3, 16, 96);
+            if (pretrainedModel.canGetFile()) {
+                final File file = pretrainedModel.getFile();
+                paramCNN.put("modelFile", file);
+            }
+            else {
+                paramCNN.put("modelUrl", pretrainedModel.url);
+            }
+            paramCNN.put("blockMultiple", pretrainedModel.sizeDivBy);
+            paramCNN.put("overlap", pretrainedModel.tileOverlap);
+
+    }*/
+
+
+   /* } catch (IOException e) {
+        e.printStackTrace();
+    } */
+}
 
 }
