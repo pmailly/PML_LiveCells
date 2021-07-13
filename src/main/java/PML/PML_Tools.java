@@ -222,7 +222,7 @@ public class PML_Tools {
         else
             cal.pixelDepth = 1;
         cal.setUnit("microns");
-        System.out.println("x cal = " +cal.pixelWidth+", z cal=" + cal.pixelDepth);
+        System.out.println("x cal = " +cal.pixelWidth+", z cal=" + cal.pixelDepth+" "+cal.fps);
         return(cal);
     }
     
@@ -576,6 +576,52 @@ public class PML_Tools {
         closeImages(imgDOG);
       
         return(pmlPop);
+    }
+    
+    /** Find dots with DoG or LoG method, on aligned images */
+      public Objects3DPopulation findDotsAlign(ImagePlus img, ImagePlus nuc, Transformer trans, int dog) {
+        ImagePlus imgDots = new Duplicator().run(img);
+        //DoG
+        if (dog==1){
+            double sig1 = radius;
+            double sig2 = radius/3;
+            IJ.run(imgDots,"Difference of Gaussians", "  sigma1="+sig1+" sigma2="+sig2+" scaled stack");
+        }
+        // LoG
+        else {
+            double sigma = radius/(3*img.getCalibration().pixelWidth);
+            IJ.run(imgDots, "Laplacian of Gaussian", "sigma="+sigma+" negate stack");
+        }
+        imgDots.setSlice(imgDots.getNSlices()/2);
+        IJ.setAutoThreshold(imgDots, thMet+" dark");
+        Prefs.blackBackground = false;
+        IJ.run(imgDots, "Convert to Mask", "method="+thMet+" background=Default");
+        
+        
+        // Do alignement
+        if (trans != null) {
+             trans.doTransformation(imgDots);
+             // rebinarize
+              IJ.setAutoThreshold(imgDots, "Default dark stack");
+              Prefs.blackBackground = false;
+              IJ.run(imgDots, "Convert to Mask", "method=Default background=Dark stack");
+        }
+
+        Objects3DPopulation pmlPop = new Objects3DPopulation(getPopFromImage(imgDots).getObjectsWithinVolume(minPML, maxPML, true));
+        for ( int i = 0; i < pmlPop.getNbObjects(); i++)
+        {
+            Object3D obj = pmlPop.getObject(i);
+            // no colocalisation: all pixels are black
+            if ( obj.getPixMeanValue(ImageHandler.wrap(nuc)) < 1 )
+            {
+                pmlPop.removeObject(i);
+                i--;
+            }
+            
+        }
+        closeImages(imgDots);
+      
+        return(pmlPop);
     } 
     
     /** 
@@ -792,9 +838,30 @@ public class PML_Tools {
         }
         return new Concatenator().concatenate(hyperPML, false);
     }
+     
+      public ImagePlus drawNucleusStack(Objects3DPopulation pop, Roi roi, int nimg, int nz) {
+        ImagePlus[] hyperBin = new ImagePlus[nimg];
+        // Draw at each time
+        for (int i=0; i<pop.getNbObjects(); i++)
+        {
+            ImagePlus ip = IJ.createImage("nucleus", "8-bit black", roi.getBounds().width, roi.getBounds().height, 1, nz, 1);
+            ImageHandler imhObjects = ImageHandler.wrap(ip).createSameDimensions();
+            pop.getObject(i).draw(imhObjects, 255); 
+            imhObjects.getImagePlus().setCalibration(cal);
+            hyperBin[i] = imhObjects.getImagePlus();
+        }
+        // if no objects on some images at the end: Change by putting pop in a map to associate with the slice ?
+        if (pop.getNbObjects()<nimg){
+            for (int j=pop.getNbObjects(); j<nimg; j++){
+                ImagePlus ip = IJ.createImage("nucleus", "8-bit black", roi.getBounds().width, roi.getBounds().height, 1, nz, 1);
+                hyperBin[j] = ip;
+            }
+        }
+        return new Concatenator().concatenate(hyperBin, false);
+    }
     
      /** align */
-     public ImagePlus alignStack(ArrayList<Transformer> transformers, ImagePlus imp) {
+     public ImagePlus alignStack(ArrayList<Transformer> transformers, ImagePlus imp, boolean rebin) {
          ImagePlus[] hyper = new ImagePlus[transformers.size()+1];
          SubHyperstackMaker sub = new SubHyperstackMaker();
          hyper[0] = sub.makeSubhyperstack(imp, "1-1", "1-"+imp.getNSlices(), "1-1");
@@ -802,9 +869,24 @@ public class PML_Tools {
             Transformer trans = transformers.get(i-1);
             ImagePlus cur = sub.makeSubhyperstack(imp, "1-1", "1-"+imp.getNSlices(), (i+1)+"-"+(i+1));
             trans.doTransformation(cur);
+            // rebinarize
+            if ( rebin ){
+                IJ.setAutoThreshold(cur, "Default dark stack");
+                Prefs.blackBackground = false;
+                IJ.run(cur, "Convert to Mask", "method=Default background=Dark stack");
+            }
             hyper[i] = cur;
         }
         return new Concatenator().concatenate(hyper, false);
+     }
+     
+     /** align */
+     public void alignPop(ImagePlus imp, Objects3DPopulation pop) {
+         SubHyperstackMaker sub = new SubHyperstackMaker();
+         for ( int i = 1; i <= imp.getNFrames(); i++) {
+            ImagePlus cur = sub.makeSubhyperstack(imp, "1-1", "1-"+imp.getNSlices(), i+"-"+i);
+            pop.setObject(i-1,(getPopFromImage(cur)).getObject(0));
+        }
      }
      
      public void saveWholeImage(ImagePlus[] imgs, String fileName) {
@@ -817,23 +899,25 @@ public class PML_Tools {
         closeImages(img);
      }
      
+     
+     
      /**
      * Save image objects
      */
     public ImagePlus alignAndSave(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, String root, int index, boolean saveObj) {
 
-        ImagePlus unnucl = drawNucleus(nucPop, imgArray, false, 0);
+      ImagePlus unnucl = drawNucleus(nucPop, imgArray, false, 0);
         // Get transformations to do to align stack
         ArrayList<Transformer> trans = new StackReg_Plus().stackRegister(stackProj(unnucl));
-        
+     
         ImagePlus nucleus = null;
         if (saveObj) {
         // align nucleus stack
-        nucleus = alignStack(trans, unnucl);
+        nucleus = alignStack(trans, unnucl, true);
         // rebinarize
-         IJ.setAutoThreshold(nucleus, "Default dark stack");
-         Prefs.blackBackground = false;
-         IJ.run(nucleus, "Convert to Mask", "method=Default background=Dark stack");
+         //IJ.setAutoThreshold(nucleus, "Default dark stack");
+         //Prefs.blackBackground = false;
+         //IJ.run(nucleus, "Convert to Mask", "method=Default background=Dark stack");
          IJ.run(nucleus, "Multiply...", "value=0.5 stack"); 
         }
         closeImages(unnucl);
@@ -841,13 +925,13 @@ public class PML_Tools {
          // draw and align PMLs
          ImagePlus unpml = drawPMLs(pmlPopList, imgArray);
          // align pml stack
-         ImagePlus pml = alignStack(trans, unpml);
+         ImagePlus pml = alignStack(trans, unpml, true);
          closeImages(unpml);
          
         // rebinarize
-         IJ.setAutoThreshold(pml, "Default dark stack");
-         Prefs.blackBackground = false;
-         IJ.run(pml, "Convert to Mask", "method=Default background=Dark stack");
+        // IJ.setAutoThreshold(pml, "Default dark stack");
+        // Prefs.blackBackground = false;
+         //IJ.run(pml, "Convert to Mask", "method=Default background=Dark stack");
          
          if (saveObj){
          // Save images objects 
@@ -863,6 +947,39 @@ public class PML_Tools {
         //closeImages(pml);
         return pml;      
     }
+      
+     /**
+     * Save image objects
+     */
+    public ImagePlus drawOneNucleiWithPML(ArrayList<Objects3DPopulation> pmlPopList, ImagePlus nucleus, String root, int index) {
+        SubHyperstackMaker sub = new SubHyperstackMaker();
+        ImagePlus[] hyper = new ImagePlus[nucleus.getNFrames()];
+        
+        for (int i=0; i<hyper.length; i++){
+            // get z-stack at time i+1
+            ImagePlus nuc = sub.makeSubhyperstack(nucleus, "1-1", "1-"+nucleus.getNSlices(), (i+1)+"-"+(i+1));
+            IJ.run(nuc, "Multiply...", "value=0.5 stack"); 
+            // draw PMLs on the stack
+            if ( i < pmlPopList.size() ){
+                ImageHandler imh = ImageHandler.wrap(nuc);
+                Objects3DPopulation pmlPop = pmlPopList.get(i);
+                pmlPop.draw(imh, 255);
+                hyper[i] = imh.getImagePlus();
+             } else {
+                hyper[i] = nuc;
+            }
+        }
+        
+        ImagePlus res = new Concatenator().concatenate(hyper, false);    
+        FileSaver filePML = new FileSaver(res);
+        filePML.saveAsTiff(root+"_NucleusPMLs-"+index+".tif");
+        //closeImages(pml);
+        return res;      
+    }
+    
+    
+    
+    
     
      /**
      * Save image objects
