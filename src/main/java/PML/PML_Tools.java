@@ -93,6 +93,13 @@ public class PML_Tools {
     public double merging_dist = 0.8;
     public String trackMate_Detector_Method = "LoG";
     
+    public double stardistPercentileBottom = 0.2;
+    public double stardistPercentileTop = 99.8;
+    public double stardistProbThresh = 0.55;
+    public double stardistOverlayThresh = 0.4;
+    public String stardistModel = "dsb2018_heavy_augment.zip";
+    public String stardistOutput = "ROI Manager";
+    
     public CLIJ2 clij2 = CLIJ2.getInstance();
     
     public final ImageIcon icon = new ImageIcon(this.getClass().getResource("/Orion_icon.png"));
@@ -1135,6 +1142,7 @@ public class PML_Tools {
         ImagePlus resized = imgNuc.resize((int)(imgNuc.getWidth()*factor), (int)(imgNuc.getHeight()*factor), "bilinear");
         StarDist2D star = new StarDist2D();
         star.loadInput(resized);
+        star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistModel, stardistOutput);
         star.run();
     
         // try to get rid of extreme slices without nuclei
@@ -1171,6 +1179,7 @@ public class PML_Tools {
         IJ.run(resized, "Remove Outliers", "block_radius_x=2 block_radius_y=2 standard_deviations=1 stack");
         StarDist2D star = new StarDist2D();
         star.loadInput(resized);
+        star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistModel, stardistOutput);
         star.run();
     
         // try to get rid of extreme slices without nuclei
@@ -1216,6 +1225,7 @@ public class PML_Tools {
         ImagePlus resized = imgNuc.resize((int)(imgNuc.getWidth()*factor), (int)(imgNuc.getHeight()*factor), "bilinear");
         StarDist2D star = new StarDist2D();
         star.loadInput(resized);
+        star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistModel, stardistOutput);
         star.run();
         
         // try to get rid of extreme slices without nuclei
@@ -1314,4 +1324,13 @@ public class PML_Tools {
             }
         }
     }
+   /* public ImagePlus getLabelImage(){
+     Orion_StarDist2D star = new Orion_StarDist2D();
+        star.checkImgSize(img);
+        star.loadInput(img);
+        star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistModel, stardistOutput);
+        star.run();
+        Img<? extends RealType<?>> img1 = star.label.getImgPlus().getImg();
+        ImagePlus imgLab = ImageJFunctions.wrap((RandomAccessibleInterval)img1, "Labelled");
+    }*/
 }
