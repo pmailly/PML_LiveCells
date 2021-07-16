@@ -116,13 +116,13 @@ public class PML_StarDist implements PlugIn {
                 reader.setSeries(series);
                 ImporterOptions options = new ImporterOptions();
                 if (bioformat){
-                options.setId(f);
-                options.setCrop(false);
-                // open Dapi channel
-                options.setCBegin(0, channelIndex[0]);
-                options.setColorMode(ImporterOptions.COLOR_MODE_GRAYSCALE);
-                options.setCEnd(0, channelIndex[0]);
-                options.setQuiet(true);
+                    options.setId(f);
+                    options.setCrop(false);
+                    // open Dapi channel
+                    options.setCBegin(0, channelIndex[0]);
+                    options.setColorMode(ImporterOptions.COLOR_MODE_GRAYSCALE);
+                    options.setCEnd(0, channelIndex[0]);
+                    options.setQuiet(true);
                 }
                 
                 int time = reader.getSizeT();
