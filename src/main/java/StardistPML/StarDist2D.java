@@ -21,11 +21,16 @@ import ij.plugin.Concatenator;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import mcib3d.geom.Object3D;
+import mcib3d.geom.Objects3DPopulation;
 import mcib3d.image3d.ImageHandler;
 import mcib3d.image3d.ImageInt;
 import mcib3d.tracking_dev.Association;
+import mcib3d.tracking_dev.AssociationPair;
+import mcib3d.tracking_dev.CostColocalisation;
 import mcib3d.tracking_dev.TrackingAssociation;
 import net.imagej.Dataset;
 import net.imagej.ImageJ;
@@ -67,6 +72,7 @@ public class StarDist2D extends StarDist2DBase implements Command {
     private boolean showProbAndDist = false;
     private ImageJ ij;
     
+    private int max = 0; // for association labels
     
     public StarDist2D() {
          ij = new ImageJ();
@@ -299,8 +305,10 @@ public class StarDist2D extends StarDist2DBase implements Command {
         // do association
         ImagePlus[] associated = new ImagePlus[labImg.getNSlices()];
         associated[0] = labImg.crop(1+"-"+1);
+        max = 0;
         for (int i=1; i<labImg.getNSlices(); i++) {
-            associated[i] = associate(labImg, i+1, associated[i-1]);    
+            associated[i] = associate(labImg, i+1, associated[i-1]);
+            //System.out.println(max);
         }
         ImagePlus hyperRes = new Concatenator().concatenate(associated, false);
         hyperRes.setDimensions(1, hyperRes.getNFrames(), 1);
@@ -316,13 +324,31 @@ public class StarDist2D extends StarDist2DBase implements Command {
         
         ImageHandler img1 = ImageInt.wrap(ref);
         ImageHandler img2 = ImageInt.wrap(i2);
-        TrackingAssociation trackingAssociation = new TrackingAssociation(img1, img2);
-        //trackingAssociation.setPathImage(path1);
-        // merge split
-        trackingAssociation.setMerge(false);
-        // tracking
-        ImageHandler tracked = trackingAssociation.getTrackedImage();
-        //    ImageHandler pathed = trackingAssociation.getPathedImage();
+        
+        Objects3DPopulation population1 = new Objects3DPopulation(img1);
+        Objects3DPopulation population2 = new Objects3DPopulation(img2);
+
+        Association association = new Association(population1, population2, new CostColocalisation(population1, population2,10));
+        association.verbose = false;
+        association.computeAssociation();
+        // final associations
+        List<AssociationPair> finalAssociations = association.getAssociationPairs();
+        List<Object3D> finalOrphan1 = association.getOrphan1Population().getObjectsList();
+        List<Object3D> finalOrphan2 = association.getOrphan2Population().getObjectsList();
+    
+        // create results
+        ImageHandler tracked = img1.createSameDimensions();
+        // draw results
+        for (AssociationPair pair : finalAssociations) {
+            int val1 = pair.getObject3D1().getValue();
+            pair.getObject3D2().draw(tracked, val1);
+            if (val1 > max) max = val1;
+        }
+        // orphan2
+        for (Object3D object3D : finalOrphan2) {
+            max++;
+            object3D.draw(tracked, max);
+        }
         return tracked.getImagePlus();
     }
     

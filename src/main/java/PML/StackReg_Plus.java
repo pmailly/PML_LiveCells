@@ -127,7 +127,7 @@ public void run (final String arg)
             Transformer trans = transformers.get(i);
             IJ.run(imp, "Make Substack...", "slices=1-"+imp.getNSlices()+" frames="+(i+1));
             ImagePlus cur = IJ.getImage();
-            trans.doTransformation(cur);
+            trans.doTransformation(cur, false);
         }
 }
 

@@ -126,7 +126,7 @@ public class PML_StarDist implements PlugIn {
                 }
                 
                 int time = reader.getSizeT();
-                time = 5;
+                //time = 5;
                 ArrayList<Objects3DPopulation> nucPops = new ArrayList<>();
                 
                 ImagePlus[] imgWholeArray = new ImagePlus[time];
@@ -164,6 +164,7 @@ public class PML_StarDist implements PlugIn {
                  // find one nuclei in pop
                  for (int i = 0; i < init.getNbObjects(); i++) {
                         Object3D nucObj = init.getObject(i);
+                        //System.out.println("nuclei "+i);
                         Objects3DPopulation one = pml.trackNucleus(nucObj, nucPops);
                         if ( one.getNbObjects() >= Math.min(time*0.25,20) ) {
                             nuclei.add(one);
@@ -178,7 +179,7 @@ public class PML_StarDist implements PlugIn {
                      Objects3DPopulation nuc = nuclei.get(nucIndex);
                      int[] roilim = pml.getBoundingBoxXY(nuc);
                      // Crop a little larger than found nuclei
-                     int extend = 5;
+                     int extend = 10;
                      if ((roilim[0]-extend)>0) roilim[0] -= extend;
                      else roilim[0] = 0;
                      roilim[1] += extend;
@@ -199,12 +200,12 @@ public class PML_StarDist implements PlugIn {
                     
                      // Draw nucleus hyperstack (z, time)
                     ImagePlus unalignednucleus = pml.drawNucleusStack(nuc, croproi, time, nz);
-                    unalignednucleus.show();
+                    //unalignednucleus.show();
                     // Get transformations to do to align stack
                     ArrayList<Transformer> trans = new StackReg_Plus().stackRegister(pml.stackProj(unalignednucleus));
                     ImagePlus alignednucleus = pml.alignStack(trans, unalignednucleus, true);
-                    alignednucleus.show();
-                    new WaitForUserDialog("").show();
+                    //alignednucleus.show();
+                    //new WaitForUserDialog("").show();
                     pml.alignPop(alignednucleus, nuc);
                     
                     
@@ -233,11 +234,13 @@ public class PML_StarDist implements PlugIn {
                            
                             if (pml.trackMate_Detector_Method.equals("DoG"))   
                                 pmlPop = pml.findDotsAlign(imgPML, alignednucleus, curtrans, 1);
-                            else
+                             if (pml.trackMate_Detector_Method.equals("LoG"))
                                 pmlPop = pml.findDotsAlign(imgPML, alignednucleus, curtrans, 0);
+                             if (pml.trackMate_Detector_Method.equals("StarDist"))
+                                pmlPop = pml.findDotsStarDist(imgPML, alignednucleus, curtrans);
                            
                             pmlPopList.add(pmlPop);
-                            if (t>0) (trans.get(t-1)).doTransformation(imgPML);
+                            if (t>0) (trans.get(t-1)).doTransformation(imgPML, false);
                             
                             pmlDiffusInt.add(pml.pmlDiffus(pmlPop, nuc.getObject(t), imgPML));
                             pmlInt.add(pml.getPMLIntensity(pmlPop, imgPML));
