@@ -98,7 +98,7 @@ public class PML_Tools {
     public double stardistProbThresh = 0.55;
     public double stardistOverlayThresh = 0.4;
     public String stardistModel = "dsb2018_heavy_augment.zip";
-    public String stardistOutput = "ROI Manager";
+    public String stardistOutput = "Label Image";
     
     public CLIJ2 clij2 = CLIJ2.getInstance();
     
@@ -890,7 +890,7 @@ public class PML_Tools {
      /** align */
      public void alignPop(ImagePlus imp, Objects3DPopulation pop) {
          SubHyperstackMaker sub = new SubHyperstackMaker();
-         for ( int i = 1; i <= imp.getNFrames(); i++) {
+         for ( int i = 1; i <= pop.getNbObjects(); i++) {
             ImagePlus cur = sub.makeSubhyperstack(imp, "1-1", "1-"+imp.getNSlices(), i+"-"+i);
             pop.setObject(i-1,(getPopFromImage(cur)).getObject(0));
         }
@@ -994,6 +994,8 @@ public class PML_Tools {
     public void drawOnWholeImage(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, Roi roi, int index) {
         translateRoiBack(nucPop, roi);
         ImagePlus imgnucl = drawNucleus(nucPop, imgArray, true, index);
+        imgnucl.show();
+        new WaitForUserDialog("").show();
         // draw and align PMLs
         translateRoiBack(pmlPopList, roi);
         ImagePlus imgpml = drawPMLs(pmlPopList, imgArray);
@@ -1132,6 +1134,39 @@ public class PML_Tools {
 		}
 		rm.runCommand(ip,"Deselect");
 	}
+        
+        public void clearSlicesWithoutSignal(ImagePlus imp) {
+        // try to get rid of extreme slices without nuclei
+        ImagePlus bin = new Duplicator().run(imp);
+        IJ.setAutoThreshold(bin, "Otsu dark stack");
+        Prefs.blackBackground = false;
+        IJ.run(bin, "Convert to Mask", "method=Otsu background=Dark stack");
+        
+        bin.setSlice(bin.getNSlices()/2);
+        ImageStatistics stat = bin.getStatistics();
+        // threshold didn't work well, very few pixels found
+        if ( stat.mean < 10 ) {
+            closeImages(bin);
+            bin = new Duplicator().run(imp);
+            IJ.setAutoThreshold(bin, "Default dark stack");
+            Prefs.blackBackground = false;
+            IJ.run(bin, "Convert to Mask", "method=Default background=Dark stack");
+        }
+        
+       for ( int i=1; i <= imp.getNSlices(); i++ )
+       {
+            bin.setSlice(i);
+            stat = bin.getStatistics();
+            // don't contain signal
+            if (stat.mean < 10)
+            {
+                imp.setSlice(i);
+                IJ.run(imp, "Select All", "");
+		IJ.setBackgroundColor(0, 0, 0);
+		IJ.run(imp, "Clear", "slice");
+            }
+        }
+    }
     
     
     /** Look for all nuclei
@@ -1173,48 +1208,35 @@ public class PML_Tools {
      * return nuclei population
      */
     public Objects3DPopulation stardistNucleiPop(ImagePlus imgNuc){
+        // resize to be in a stardist-friendly scale
         double factor = 300.0/imgNuc.getWidth();
-        ImagePlus resized = imgNuc.resize((int)(imgNuc.getWidth()*factor), (int)(imgNuc.getHeight()*factor), "bilinear");
+        int width = imgNuc.getWidth();
+        int height = imgNuc.getHeight();
+        ImagePlus resized = imgNuc.resize((int)(width*factor), (int)(height*factor), "bilinear");
         resized.setCalibration(cal);
+        closeImages(imgNuc);
         IJ.run(resized, "Remove Outliers", "block_radius_x=2 block_radius_y=2 standard_deviations=1 stack");
+        // clear slices on which there is no signal before to stardist it (to do: add in stardist a test if image is empty ?)
+        clearSlicesWithoutSignal(resized);
+        // Go StarDist
         StarDist2D star = new StarDist2D();
         star.loadInput(resized);
         star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistModel, stardistOutput);
         star.run();
-    
-        // try to get rid of extreme slices without nuclei
-        ImagePlus globalBin = new Duplicator().run(resized);
-        if ( globalBin.getNFrames()>1) globalBin.setDimensions(1, globalBin.getNFrames(), 1);
-        //globalBin.setT(globalBin.getNFrames()/2);
-        IJ.setAutoThreshold(globalBin, "Otsu dark stack");
-        Prefs.blackBackground = false;
-        IJ.run(globalBin, "Convert to Mask", "method=Otsu background=Dark stack");
-        
-        globalBin.setSlice(globalBin.getNSlices()/2);
-        ImageStatistics stat = globalBin.getStatistics();
-        // threshold didn't work well, very few pixels found
-        if ( stat.mean < 10 ) {
-            closeImages(globalBin);
-            globalBin = new Duplicator().run(resized);
-            if ( globalBin.getNFrames()>1) globalBin.setDimensions(1, globalBin.getNFrames(), 1);
-            IJ.setAutoThreshold(globalBin, "Default dark stack");
-            Prefs.blackBackground = false;
-            IJ.run(globalBin, "Convert to Mask", "method=Default background=Dark stack");
-        }   
-        //globalBin.show();
-        //new WaitForUserDialog("t").show();
-    
-        ImagePlus back = resized.resize(imgNuc.getWidth(), imgNuc.getHeight(), "bilinear");
         closeImages(resized);
-        closeImages(imgNuc);
-        
-        makeNucleiResizeMask(back, 1.0/factor, globalBin);
-        if (back.getNFrames()>1) back.setDimensions(1, back.getNFrames(), 1);
-        back.setCalibration(cal);
-        
-       Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(back).getObjectsWithinVolume(minNuc, maxNuc, true));
-       closeImages(back);
-       return(nucPop);
+        // label in 3D
+        ImagePlus nuclei = star.associateLabels();
+        ImagePlus newnuc = nuclei.resize(width, height, 1, "none");
+        newnuc.setCalibration(cal);
+        closeImages(nuclei);
+        //nuclei.show();
+        //new WaitForUserDialog("test").show();
+        ImageInt label3D = ImageInt.wrap(newnuc);
+        Objects3DPopulation nucPop = new Objects3DPopulation(label3D);
+        //Objects3DPopulation newpop = new Objects3DPopulation();
+       closeImages(newnuc);
+       Objects3DPopulation nPop = new Objects3DPopulation(nucPop.getObjectsWithinVolume(minNuc, maxNuc, true));
+       return(nPop);
     }
       
     /** Look for one nuclei in a Roi
@@ -1275,7 +1297,7 @@ public class PML_Tools {
         for (int i=0; i<pop.size(); i++) {
             Object3D closest = (pop.get(i)).closestCenter(obj.getCenterAsPoint());
             // threshold distance to loose the nuclei (not aligned image so can move)
-            if (obj.distCenterUnit(closest) > 6) {
+            if (obj.distCenterUnit(closest) > 3) {
                 return nucl;
             }
             // within distance, continue

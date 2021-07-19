@@ -16,17 +16,25 @@ import org.scijava.command.CommandModule;
 
 import ij.IJ;
 import ij.ImagePlus;
+import ij.gui.WaitForUserDialog;
+import ij.plugin.Concatenator;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import mcib3d.image3d.ImageHandler;
+import mcib3d.image3d.ImageInt;
+import mcib3d.tracking_dev.Association;
+import mcib3d.tracking_dev.TrackingAssociation;
 import net.imagej.Dataset;
 import net.imagej.ImageJ;
 import net.imagej.ImgPlus;
 import net.imagej.axis.Axes;
 import net.imagej.axis.AxisType;
 import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.img.Img;
+import net.imglib2.img.display.imagej.ImageJFunctions;
 import net.imglib2.type.numeric.RealType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.util.Pair;
@@ -161,6 +169,7 @@ public class StarDist2D extends StarDist2DBase implements Command {
 
                     IJ.showProgress(1+t, (int)numFrames);
                 }
+                
                 label = labelImageToDataset(outputType);                
                 // if (roiManager != null) OverlayCommands.listRois(roiManager.getRoisAsArray());
 
@@ -274,6 +283,47 @@ public class StarDist2D extends StarDist2DBase implements Command {
           } catch (Exception e){
              IJ.error("Error "+e.toString());
          }       
+    }
+    
+    // return label image - Needs to have been run in Label Image or Both output type mode
+    public ImagePlus getLabelImagePlus() {
+        Img<? extends RealType<?>> img1 = label.getImgPlus().getImg();
+        return ImageJFunctions.wrap((RandomAccessibleInterval)img1, "Labelled");
+    }
+    
+    public ImagePlus associateLabels() {
+        ImagePlus labImg = getLabelImagePlus();
+        // put the image back in slices
+        if ( labImg.getNChannels()>1) labImg.setDimensions(1, labImg.getNChannels(), 1);
+        if ( labImg.getNFrames()>1) labImg.setDimensions(1, labImg.getNFrames(), 1);
+        // do association
+        ImagePlus[] associated = new ImagePlus[labImg.getNSlices()];
+        associated[0] = labImg.crop(1+"-"+1);
+        for (int i=1; i<labImg.getNSlices(); i++) {
+            associated[i] = associate(labImg, i+1, associated[i-1]);    
+        }
+        ImagePlus hyperRes = new Concatenator().concatenate(associated, false);
+        hyperRes.setDimensions(1, hyperRes.getNFrames(), 1);
+        //hyperRes.show();
+        //new WaitForUserDialog("asso").show();
+        return hyperRes;
+    }
+    
+    /** Associate the label of frame t-1 with slice z */
+    public ImagePlus associate(ImagePlus ip, int z, ImagePlus ref) {
+        IJ.run(ip, "Select None", "");
+        ImagePlus i2 = ip.crop((z)+"-"+(z));
+        
+        ImageHandler img1 = ImageInt.wrap(ref);
+        ImageHandler img2 = ImageInt.wrap(i2);
+        TrackingAssociation trackingAssociation = new TrackingAssociation(img1, img2);
+        //trackingAssociation.setPathImage(path1);
+        // merge split
+        trackingAssociation.setMerge(false);
+        // tracking
+        ImageHandler tracked = trackingAssociation.getTrackedImage();
+        //    ImageHandler pathed = trackingAssociation.getPathedImage();
+        return tracked.getImagePlus();
     }
     
     public void setParams(double percentileBottomVar, double percentileTopVar, double probThreshVar, double overlapThreshVar, String model, String outPutType){

@@ -199,9 +199,12 @@ public class PML_StarDist implements PlugIn {
                     
                      // Draw nucleus hyperstack (z, time)
                     ImagePlus unalignednucleus = pml.drawNucleusStack(nuc, croproi, time, nz);
+                    unalignednucleus.show();
                     // Get transformations to do to align stack
                     ArrayList<Transformer> trans = new StackReg_Plus().stackRegister(pml.stackProj(unalignednucleus));
                     ImagePlus alignednucleus = pml.alignStack(trans, unalignednucleus, true);
+                    alignednucleus.show();
+                    new WaitForUserDialog("").show();
                     pml.alignPop(alignednucleus, nuc);
                     
                     
@@ -214,9 +217,9 @@ public class PML_StarDist implements PlugIn {
                             options.setTBegin(0, t);
                             options.setTEnd(0, t);
                             imgPML = BF.openImagePlus(options)[0];
-                        } else {
-                            imgPML = IJ.openImage(inDir+"/"+rootName+"_"+chsName[channelIndex[1]]+"_t"+(t+1)+".TIF");
-                        }
+                           } else {
+                                imgPML = IJ.openImage(inDir+"/"+rootName+"_"+chsName[channelIndex[1]]+"_t"+(t+1)+".TIF");
+                          }
                             imgPML.setCalibration(cal);
                               // crop to ROI
                             imgPML.setRoi(croproi);

@@ -115,11 +115,9 @@
                 <version>3.6.1</version>
                 <type>jar</type>
             </dependency>
-            <dependency>
-                <groupId>com.github.mcib3d</groupId>
-                <artifactId>mcib3d-core</artifactId>
-                <version>3.96.3</version>
-            </dependency>
+           
+            
+       
             <dependency>
                 <groupId>sc.fiji</groupId>
                 <artifactId>fiji-lib</artifactId>
@@ -178,6 +176,12 @@
 	  <version>5.10.0</version>
 	  <type>jar</type>
 	 </dependency>
+	
+         <dependency>
+		<groupId>org.framagit.mcib3d</groupId>
+                <artifactId>mcib3d-core</artifactId>
+                <version>4.0.1</version>
+	</dependency>
 	</dependencies>
         <repositories>
             <repository>

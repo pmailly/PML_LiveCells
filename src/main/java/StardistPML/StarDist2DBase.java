@@ -147,8 +147,8 @@ public abstract class StarDist2DBase {
             // set LUT 
             try {
                 ds.initializeColorTables(1);                
-                // ds.setColorTable(lut.loadLUT(lut.findLUTs().get("StarDist.lut")), 0);
-                ds.setColorTable(lut.loadLUT(getResource("luts/StarDist.lut")), 0);
+                 //ds.setColorTable(lut.loadLUT(lut.findLUTs().get("StarDist.lut")), 0);
+                //ds.setColorTable(lut.loadLUT(getResource("luts/StarDist.lut")), 0);
                 ds.setChannelMinimum(0, 0);
                 ds.setChannelMaximum(0, Math.min(labelCount, MAX_LABEL_ID));
             } catch (Exception e) {
