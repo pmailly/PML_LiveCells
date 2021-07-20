@@ -2,10 +2,12 @@ package PML;
 
 import ij.IJ;
 import ij.ImagePlus;
+import ij.gui.WaitForUserDialog;
 import ij.io.FileSaver;
 import ij.process.ImageConverter;
 import ij.process.ImageStatistics;
 import ij.process.ShortProcessor;
+import ij3d.behaviors.WaitForNextFrameBehavior;
 import java.lang.reflect.Method;
 
 /**
@@ -57,6 +59,7 @@ public class Transformer {
         {
             Object turboReg = null;
             IJ.run(imp, "16-bit","");
+            imp.setSlice(imp.getNSlices()/2);
             ImageStatistics stat = imp.getStatistics();
             for ( int z=1; z<=imp.getNSlices(); z++)
             {
@@ -97,13 +100,16 @@ public class Transformer {
                 imp.setProcessor(null, transformedSource.getProcessor());
                }        
             if (noblack) { 
-            double newval = stat.mean - 1*stat.stdDev;    
-             IJ.run(imp, "Macro...", "code=v=v+(v==0)*"+newval+" stack");
+                double newval = stat.mean - 1*stat.stdDev;    
+                IJ.run(imp, "Macro...", "code=v=v+(v==0)*"+newval+" stack");
             }
         }
         catch (Exception e)
         {
-            IJ.error("Error in alignement with TurboReg "+e.toString());
+            IJ.log("Error in alignement with TurboReg "+e.toString());
+            IJ.log("Continue");
+            //imp.show();
+            //new WaitForUserDialog("test").show();
             return;
         }
     }

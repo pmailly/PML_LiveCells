@@ -26,6 +26,7 @@ import mcib3d.geom.Objects3DPopulation;
 import mcib3d.geom.Object3D;
 import ij.measure.Calibration;
 import ij.plugin.Concatenator;
+import ij.plugin.SubHyperstackMaker;
 import ij.plugin.frame.RoiManager;
 import java.awt.Rectangle;
 import java.io.IOException;
@@ -126,15 +127,17 @@ public class PML_StarDist implements PlugIn {
                 }
                 
                 int time = reader.getSizeT();
-                //time = 5;
+                //time = 20;
                 ArrayList<Objects3DPopulation> nucPops = new ArrayList<>();
-                
+                if (pml.verbose) IJ.log("\\Clear");
                 ImagePlus[] imgWholeArray = new ImagePlus[time];
                 int nz = 0;
+                
                 
                 // Look for nuclei
                  for (int t = 0; t < time; t++) {
                         IJ.showStatus("Reading time " + t + "/"+time);
+                        if (pml.verbose) IJ.log("Doing time " + t + "/"+time);
                         ImagePlus imgNuc;
                         if (bioformat){
                             options.setTBegin(0, t);
@@ -153,14 +156,16 @@ public class PML_StarDist implements PlugIn {
                        IJ.run(imgWholeArray[t], "Multiply...", "value=0.25 stack"); // put to low intensity to not interfere with drawings
                        nz = imgNuc.getNSlices();
                        Objects3DPopulation nucPop = pml.stardistNucleiPop(imgNuc);
-                       nucPops.add(nucPop);    
+                       nucPops.add(nucPop);  
+                       if (pml.verbose) IJ.log("Found "+nucPop.getNbObjects()+" nuclei");
                        pml.closeImages(imgNuc);
                  }
                 
                  // "Track" nuclei: sorted by time to sorted by nuclei index
                  ArrayList<Objects3DPopulation> nuclei = new ArrayList<>();
                  Objects3DPopulation init = nucPops.get(0); // population at t=0
-                 System.out.println("Found init "+init.getNbObjects()+" nuclei");
+                 //System.out.println("Found init "+init.getNbObjects()+" nuclei");
+                 if (pml.verbose) IJ.log("Found init "+init.getNbObjects()+" nuclei");
                  // find one nuclei in pop
                  for (int i = 0; i < init.getNbObjects(); i++) {
                         Object3D nucObj = init.getObject(i);
@@ -170,22 +175,25 @@ public class PML_StarDist implements PlugIn {
                             nuclei.add(one);
                         }
                 }
-                System.out.println("Keep "+nuclei.size()+" nuclei");
+                 if (pml.verbose) IJ.log("Keep "+nuclei.size()+" nuclei \n");
+                //System.out.println("Keep "+nuclei.size()+" nuclei");
                  
                  
                  // Work on each nuclei: crop, get pml, track...
                  for (int nucIndex=0; nucIndex<nuclei.size(); nucIndex++) {
-                     
+                     if (pml.verbose) IJ.log("Working on nuclei "+nucIndex+"/"+nuclei.size());
                      Objects3DPopulation nuc = nuclei.get(nucIndex);
                      int[] roilim = pml.getBoundingBoxXY(nuc);
                      // Crop a little larger than found nuclei
                      int extend = 10;
-                     if ((roilim[0]-extend)>0) roilim[0] -= extend;
+                     if ((roilim[0]-extend)>=0) roilim[0] -= extend;
                      else roilim[0] = 0;
-                     roilim[1] += extend;
-                     if ((roilim[2]-extend)>0) roilim[2] -= extend;
+                     if ((roilim[1]+extend)<width) roilim[1] += extend;
+                     else roilim[1] = (width-1);
+                     if ((roilim[2]-extend)>=0) roilim[2] -= extend;
                      else roilim[2] = 0;
-                     roilim[3] += extend;
+                     if ((roilim[3]+extend)<height) roilim[3] += extend;
+                     else roilim[3] = (height-1);
                      // open PML cropped
                      Roi croproi = new Roi(roilim[0], roilim[2], roilim[1]-roilim[0], roilim[3]-roilim[2]);
                      // move nucleus coordinates to ROI coordinates
@@ -200,16 +208,14 @@ public class PML_StarDist implements PlugIn {
                     
                      // Draw nucleus hyperstack (z, time)
                     ImagePlus unalignednucleus = pml.drawNucleusStack(nuc, croproi, time, nz);
-                    //unalignednucleus.show();
                     // Get transformations to do to align stack
                     ArrayList<Transformer> trans = new StackReg_Plus().stackRegister(pml.stackProj(unalignednucleus));
                     ImagePlus alignednucleus = pml.alignStack(trans, unalignednucleus, true);
-                    //alignednucleus.show();
-                    //new WaitForUserDialog("").show();
                     pml.alignPop(alignednucleus, nuc);
                     
-                    
+                     SubHyperstackMaker sub = new SubHyperstackMaker();
                     for (int t = 0; t < nuctime; t++) { 
+                         if (pml.verbose) IJ.log("Working on nuclei "+nucIndex+" time "+t+"∕"+nuctime);
                         ImagePlus imgPML;
                           // Open pml channel
                         if (bioformat){ 
@@ -231,14 +237,16 @@ public class PML_StarDist implements PlugIn {
                             Objects3DPopulation pmlPop = new Objects3DPopulation();
                             Transformer curtrans = null;
                             if (t>0) curtrans = trans.get(t-1);
-                           
+                          
+                            ImagePlus anucleus = sub.makeSubhyperstack(alignednucleus, "1-1", "1-"+alignednucleus.getNSlices(), (t+1)+"-"+(t+1));
                             if (pml.trackMate_Detector_Method.equals("DoG"))   
-                                pmlPop = pml.findDotsAlign(imgPML, alignednucleus, curtrans, 1);
+                                pmlPop = pml.findDotsAlign(imgPML, anucleus, curtrans, 1);
                              if (pml.trackMate_Detector_Method.equals("LoG"))
-                                pmlPop = pml.findDotsAlign(imgPML, alignednucleus, curtrans, 0);
+                                pmlPop = pml.findDotsAlign(imgPML, anucleus, curtrans, 0);
                              if (pml.trackMate_Detector_Method.equals("StarDist"))
-                                pmlPop = pml.findDotsStarDist(imgPML, alignednucleus, curtrans);
-                           
+                                pmlPop = pml.findDotsStarDist(imgPML, anucleus, curtrans);
+                           pml.closeImages(anucleus);
+                             
                             pmlPopList.add(pmlPop);
                             if (t>0) (trans.get(t-1)).doTransformation(imgPML, false);
                             
@@ -248,11 +256,12 @@ public class PML_StarDist implements PlugIn {
                             pml.closeImages(imgPML);    
                     }
                     
+                     if (pml.verbose) IJ.log("Write results nuclei "+nucIndex+"/"+nuclei.size());
+                    
                      // Save images objects
                     // Align populations
                     ImagePlus dotBin = pml.drawOneNucleiWithPML(pmlPopList, alignednucleus, outDirResults+rootName, nucIndex);
-                    //pml.saveDiffusImage(pmlPopList, imgDiffusArray, outDirResults+rootName+"_Diffuse-"+nucIndex+".tif");
- 
+                    
                     // Write headers results for results file{
                     FileWriter fileResults = new FileWriter(outDirResults + rootName + "_Nucleus_" + nucIndex +"_results.xls", false);
                     outPutResults = new BufferedWriter(fileResults);
@@ -279,7 +288,8 @@ public class PML_StarDist implements PlugIn {
                     IJ.showStatus("Track PMLs");
                     TrackMater track = new TrackMater();
                     String resName = outDirResults+rootName+"nuc_"+nucIndex;
-                    //track.run(dotBin, outDirResults, rootName+"_PMLs-"+nucIndex+".tif", pml.radius, pml.threshold, pml.trackMate_Detector_Method, 1.0, pml.merging_dist, true, true);
+                    
+                    if (pml.verbose) IJ.log("Track PMLs for nuclei "+nucIndex+"/"+nuclei.size());
                     
                     boolean success = track.trackmateObjects(dotBin, pmlPopList, outDirResults, rootName+"_NucleusPMLs-"+nucIndex+".tif", pml.radius, 1.0, pml.merging_dist);
                     if (success) track.saveResults(resName+"_trackmateSaved.xml", resName+"_trackmateExport.xml", resName+"_trackmateSpotsStats.csv", resName+"_trackmateTrackStats.csv", outDirResults, rootName+"_PMLs-"+nucIndex+".tif");           
@@ -288,6 +298,7 @@ public class PML_StarDist implements PlugIn {
                     pml.drawOnWholeImage(pmlPopList, nuc, imgWholeArray, croproi, nucIndex);
                  }
                  
+                if (pml.verbose) IJ.log("Save whole image \n");
                 pml.saveWholeImage(imgWholeArray, outDirResults+rootName+"_Objects.tif");
            }
             IJ.showStatus("Process done"); 

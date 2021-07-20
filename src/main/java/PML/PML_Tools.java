@@ -71,16 +71,17 @@ import net.imagej.ImageJ;
 public class PML_Tools {
    
     // min nucleus volume in mic^3
-    public double minNuc = 500;
+    private double minNuc = 500;
     // max nucleus volume in micron^3
-    public double maxNuc = 5000;
+    private double maxNuc = 5000;
     
     // min volume in pixels^3 for dots
-    public double minPML = 0.02;
+    private double minPML = 0.02;
     // max volume in pixels^3 for dots
-    public double maxPML = 60;
+    private double maxPML = 60;
     private Calibration cal = new Calibration(); 
     
+    public boolean verbose = false;
 
     // dots threshold method
     private String thMet = "Otsu";
@@ -94,12 +95,12 @@ public class PML_Tools {
     
     public String trackMate_Detector_Method = "StarDist";
     
-    public double stardistPercentileBottom = 0.2;
-    public double stardistPercentileTop = 99.8;
+    public double stardistPercentileBottom = 2.0;
+    public double stardistPercentileTop = 99.0;
     public double stardistProbThresh = 0.55;
-    public double stardistOverlayThresh = 0.4;
-       public double stardistProbThreshPML = 0.6;
-    public double stardistOverlayThreshPML = 0.4;
+    public double stardistOverlayThresh = 0.35;
+    public double stardistProbThreshPML = 0.7;
+    public double stardistOverlayThreshPML = 0.7;
     public String stardistModel = "dsb2018_heavy_augment.zip";
     public String stardistOutput = "Label Image";
     
@@ -375,7 +376,7 @@ public class PML_Tools {
         gd.addChoice("Dots threshold method : ", thMethods, thMet);
         gd.addNumericField("PML dilatation factor (µm) :", dilate, 3);
         gd.addMessage("Trackmate parameters", Font.getFont("Monospace"), Color.blue);
-        gd.addChoice("Dots detector method :", TrackMate_Detector, TrackMate_Detector[1]);
+        gd.addChoice("Dots detector method :", TrackMate_Detector, TrackMate_Detector[2]);
         gd.addNumericField("Merging / spliting max distance : ", merging_dist,3);
         gd.addNumericField("PML dots radius (µm) :", radius, 3);
         gd.addNumericField("PML threshold        :", threshold, 3);
@@ -383,6 +384,7 @@ public class PML_Tools {
         gd.addNumericField("Calibration xy (µm)  :", cal.pixelWidth, 3);
         if ( cal.pixelDepth == 1) cal.pixelDepth = 0.5;
         gd.addNumericField("Calibration z (µm)  :", cal.pixelDepth, 3);
+        gd.addCheckbox("verbose", verbose);
         gd.showDialog();
         int[] chChoices = new int[channels.length];
         for (int n = 0; n < chChoices.length; n++) {
@@ -399,6 +401,7 @@ public class PML_Tools {
         cal.pixelWidth = gd.getNextNumber();
         cal.pixelHeight = cal.pixelWidth;
         cal.pixelDepth = gd.getNextNumber();
+        verbose = gd.getNextBoolean();
         if (gd.wasCanceled())
                 chChoices = null;
         return(chChoices);
@@ -637,8 +640,11 @@ public class PML_Tools {
        /** Find dots with StarDist LoG method, on aligned images */
       public Objects3DPopulation findDotsStarDist(ImagePlus img, ImagePlus nuc, Transformer trans) {
         ImagePlus imgDots = new Duplicator().run(img);
-        // clear slices on which there is no signal before to stardist it (to do: add in stardist a test if image is empty ?)
-        // Change to slices where there is no nucleus ??
+        // clear slices where there is no nucleus 
+        clearSlicesWithoutNuclei(imgDots, nuc);
+        double sig1 = radius;
+        double sig2 = radius/3;
+        IJ.run(imgDots,"Difference of Gaussians", "  sigma1="+sig1+" sigma2="+sig2+" scaled stack");
         clearSlicesWithoutNuclei(imgDots, nuc);
          // Do alignement
         if (trans != null) {
@@ -654,9 +660,7 @@ public class PML_Tools {
         // label in 3D
         ImagePlus pmls = star.associateLabels();
         pmls.setCalibration(cal);
-        //closeImages(nuclei);
-        //pmls.show();
-        //new WaitForUserDialog("test").show();
+        
         ImageInt label3D = ImageInt.wrap(pmls);
         Objects3DPopulation pop = new Objects3DPopulation(pmls);;
        closeImages(pmls);
@@ -1211,11 +1215,13 @@ public class PML_Tools {
             Prefs.blackBackground = false;
             IJ.run(bin, "Convert to Mask", "method=Default background=Dark stack");
         }
-        
+       
+        int found = 0;
        for ( int i=1; i <= imp.getNSlices(); i++ )
        {
             bin.setSlice(i);
             stat = bin.getStatistics();
+          
             // don't contain signal
             if (stat.mean < 10)
             {
@@ -1223,6 +1229,7 @@ public class PML_Tools {
                 IJ.run(imp, "Select All", "");
 		IJ.setBackgroundColor(0, 0, 0);
 		IJ.run(imp, "Clear", "slice");
+                IJ.run(imp, "Select None", "");
             }
         }
     }
@@ -1242,6 +1249,7 @@ public class PML_Tools {
                 IJ.run(imp, "Select All", "");
 		IJ.setBackgroundColor(0, 0, 0);
 		IJ.run(imp, "Clear", "slice");
+                IJ.run(imp, "Select None", "");
             }
         }
      }
@@ -1282,6 +1290,11 @@ public class PML_Tools {
       
     }
     
+    public void show(ImagePlus ip) {
+        ip.show();
+        new WaitForUserDialog("debug").show();
+    }
+    
      /** Look for all nuclei
      Do z slice by slice stardist 
      * return nuclei population
@@ -1297,7 +1310,8 @@ public class PML_Tools {
         IJ.run(resized, "Remove Outliers", "block_radius_x=2 block_radius_y=2 standard_deviations=1 stack");
         // clear slices on which there is no signal before to stardist it (to do: add in stardist a test if image is empty ?)
         clearSlicesWithoutSignal(resized);
-        // Go StarDist
+        //show(resized);
+// Go StarDist
         StarDist2D star = new StarDist2D();
         star.loadInput(resized);
         star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistModel, stardistOutput);
@@ -1307,12 +1321,10 @@ public class PML_Tools {
         ImagePlus nuclei = star.associateLabels();
         ImagePlus newnuc = nuclei.resize(width, height, 1, "none");
         newnuc.setCalibration(cal);
+        //show(nuclei);
         closeImages(nuclei);
-        //nuclei.show();
-        //new WaitForUserDialog("test").show();
         ImageInt label3D = ImageInt.wrap(newnuc);
         Objects3DPopulation nucPop = new Objects3DPopulation(label3D);
-        //Objects3DPopulation newpop = new Objects3DPopulation();
        closeImages(newnuc);
        Objects3DPopulation nPop = new Objects3DPopulation(nucPop.getObjectsWithinVolume(minNuc, maxNuc, true));
        return(nPop);
