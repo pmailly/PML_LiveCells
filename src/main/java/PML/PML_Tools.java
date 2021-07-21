@@ -980,7 +980,7 @@ public class PML_Tools {
      public void saveWholeImage(ImagePlus[] imgs, String fileName) {
         
          ImagePlus img = new Concatenator().concatenate(imgs, false);
-        double factor = 750.0/img.getWidth();  // diminue la taille pour pas enregistrer une image trop big
+        double factor = 500.0/img.getWidth();  // diminue la taille pour pas enregistrer une image trop big
         ImagePlus resized = img.resize((int)(img.getWidth()*factor), (int)(img.getHeight()*factor), "bilinear");
         FileSaver fileImg = new FileSaver(img);
         fileImg.saveAsTiff(fileName);
@@ -1002,10 +1002,6 @@ public class PML_Tools {
         if (saveObj) {
         // align nucleus stack
         nucleus = alignStack(trans, unnucl, true);
-        // rebinarize
-         //IJ.setAutoThreshold(nucleus, "Default dark stack");
-         //Prefs.blackBackground = false;
-         //IJ.run(nucleus, "Convert to Mask", "method=Default background=Dark stack");
          IJ.run(nucleus, "Multiply...", "value=0.5 stack"); 
         }
         closeImages(unnucl);
@@ -1015,11 +1011,7 @@ public class PML_Tools {
          // align pml stack
          ImagePlus pml = alignStack(trans, unpml, true);
          closeImages(unpml);
-         
-        // rebinarize
-        // IJ.setAutoThreshold(pml, "Default dark stack");
-        // Prefs.blackBackground = false;
-         //IJ.run(pml, "Convert to Mask", "method=Default background=Dark stack");
+
          
          if (saveObj){
          // Save images objects 
@@ -1377,12 +1369,11 @@ public class PML_Tools {
         }
         Object3D nucObj = nucPop.getObject(ind);
         closeImages(back);
-        return(nucObj);
-      
+        return(nucObj); 
     }
     
     
-   /** Looks for the closest nuclei at each time (track it). Loose it if too far from given distance */ 
+   /** Looks for the closest nuclei at each time (track it). Loose it if too far from given distance, do it by association instead ? */ 
     public Objects3DPopulation trackNucleus( Object3D obj, ArrayList<Objects3DPopulation> pop) {
         Objects3DPopulation nucl = new Objects3DPopulation();    
         for (int i=0; i<pop.size(); i++) {

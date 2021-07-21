@@ -153,7 +153,7 @@ public class PML_StarDist implements PlugIn {
                        imgNuc.setCalibration(cal);          
                        imgWholeArray[t] = imgNuc.duplicate();
                        IJ.run(imgWholeArray[t], "8-bit", ""); // for smaller file size, only used for drawing
-                       IJ.run(imgWholeArray[t], "Multiply...", "value=0.25 stack"); // put to low intensity to not interfere with drawings
+                       IJ.run(imgWholeArray[t], "Multiply...", "value=0 stack"); // empty image
                        nz = imgNuc.getNSlices();
                        Objects3DPopulation nucPop = pml.stardistNucleiPop(imgNuc);
                        nucPops.add(nucPop);  
