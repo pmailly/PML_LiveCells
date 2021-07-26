@@ -1320,7 +1320,7 @@ public class PML_Tools {
        closeImages(newnuc);
        if (verbose) IJ.log("Before size threshold: "+nucPop.getNbObjects()+" nuclei");
        Objects3DPopulation nPop = new Objects3DPopulation(nucPop.getObjectsWithinVolume(minNuc, maxNuc, true));
-       if (verbose) IJ.log("After size threshold: "+nucPop.getNbObjects()+" nuclei");
+       if (verbose) IJ.log("After size threshold: "+nPop.getNbObjects()+" nuclei");
        return(nPop);
     }
       
