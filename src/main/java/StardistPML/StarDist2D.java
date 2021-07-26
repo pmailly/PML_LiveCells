@@ -279,16 +279,21 @@ public class StarDist2D extends StarDist2DBase implements Command {
     }
     
     public void loadInput(ImagePlus imp) {
-         String modeldir = IJ.getDirectory("imagej")+"/models/";
-         checkImageSize(imp);
-         if ( imp.getNSlices()>1) imp.setDimensions(1, 1, imp.getNSlices());
-         IJ.saveAs(imp, "Tiff", modeldir+"tmp.tif");
-         try{
-         input = ij.scifio().datasetIO().open(modeldir+"tmp.tif");
-         //ij.ui().show(input);
-          } catch (Exception e){
-             IJ.error("Error "+e.toString());
-         }       
+        String modeldir = IJ.getDirectory("imagej")+"/models/";
+        checkImageSize(imp);
+        if ( imp.getNSlices()>1) imp.setDimensions(1, 1, imp.getNSlices());
+        final AxisType[] axes = new AxisType[]{Axes.X, Axes.Y, Axes.TIME};
+        final Img inputImg = (Img) ImageJFunctions.wrap(imp);
+        input = Utils.raiToDataset(dataset, "input", inputImg, axes);
+//        IJ.saveAs(imp, "Tiff", modeldir+"tmp.tif");
+//         try{
+//         input = ij.scifio().datasetIO().open(modeldir+"tmp.tif");
+//         //ij.ui().show(input);
+//          } catch (Exception e){
+//             IJ.error("Error "+e.toString());
+//         } 
+        if (imp.getNFrames()>1) 
+            imp.setDimensions(1, imp.getNSlices(), 1); 
     }
     
     // return label image - Needs to have been run in Label Image or Both output type mode
