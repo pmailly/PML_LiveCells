@@ -127,10 +127,12 @@ public class PML_StarDist implements PlugIn {
                 }
                 
                 int time = reader.getSizeT();
-                //time = 20;
+                //time = 3;
                 ArrayList<Objects3DPopulation> nucPops = new ArrayList<>();
                 if (pml.verbose) IJ.log("\\Clear");
                 ImagePlus[] imgWholeArray = new ImagePlus[time];
+                double resizeWhole = 300;  // diminue la taille pour pas enregistrer une image trop big
+                double factorResize = 0;
                 int nz = 0;
                 
                 
@@ -151,9 +153,14 @@ public class PML_StarDist implements PlugIn {
                             imgNuc = IJ.openImage(inDir+"/"+rootName+"_"+chsName[channelIndex[0]]+"_t"+(t+1)+".TIF");    
                         }
                        imgNuc.setCalibration(cal);          
-                       imgWholeArray[t] = imgNuc.duplicate();
-                       IJ.run(imgWholeArray[t], "8-bit", ""); // for smaller file size, only used for drawing
-                       IJ.run(imgWholeArray[t], "Multiply...", "value=0 stack"); // empty image
+                       ImagePlus whole  = imgNuc.duplicate();
+                       IJ.run(whole, "8-bit", ""); // for smaller file size, only used for drawing
+                       IJ.run(whole, "Multiply...", "value=0 stack"); // empty image
+                       factorResize = resizeWhole/whole.getWidth();
+                       ImagePlus resized = whole.resize((int)resizeWhole, (int)(whole.getHeight()*factorResize), "bilinear");
+                       imgWholeArray[t] = resized;
+                       pml.closeImages(whole);
+                       
                        nz = imgNuc.getNSlices();
                        Objects3DPopulation nucPop = pml.stardistNucleiPop(imgNuc);
                        nucPops.add(nucPop);  
@@ -171,7 +178,7 @@ public class PML_StarDist implements PlugIn {
                         Object3D nucObj = init.getObject(i);
                         //System.out.println("nuclei "+i);
                         Objects3DPopulation one = pml.trackNucleus(nucObj, nucPops);
-                        if ( one.getNbObjects() >= Math.min(time*0.25,20) ) {
+                        if ( one!=null && one.getNbObjects() >= Math.min(time*0.25,20) ) {
                             nuclei.add(one);
                         }
                 }
@@ -295,11 +302,11 @@ public class PML_StarDist implements PlugIn {
                     if (success) track.saveResults(resName+"_trackmateSaved.xml", resName+"_trackmateExport.xml", resName+"_trackmateSpotsStats.csv", resName+"_trackmateTrackStats.csv", outDirResults, rootName+"_PMLs-"+nucIndex+".tif");           
    
                     // Attention, This retranslate the populations to whole image position
-                    pml.drawOnWholeImage(pmlPopList, nuc, imgWholeArray, croproi, nucIndex);
+                    pml.drawOnWholeImage(pmlPopList, nuc, imgWholeArray, croproi, nucIndex, factorResize);
                  }
                  
                 if (pml.verbose) IJ.log("Save whole image \n");
-                pml.saveWholeImage(imgWholeArray, outDirResults+rootName+"_Objects.tif");
+                pml.saveWholeImage(imgWholeArray, outDirResults+rootName+"_ObjectsLowRes.tif");
            }
             IJ.showStatus("Process done"); 
         } catch (DependencyException ex) {

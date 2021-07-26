@@ -878,11 +878,12 @@ public class PML_Tools {
         return new Concatenator().concatenate(hyperBin, false);
     }
     
-    public void drawNucleusPML(Objects3DPopulation pop, ArrayList<Objects3DPopulation> pmlPopList, ImagePlus[] imArray, boolean label, int nnuc) {
+    public void drawNucleusPML(Objects3DPopulation pop, ArrayList<Objects3DPopulation> pmlPopList, ImagePlus[] imArray, boolean label, int nnuc, double factor) {
         // Draw at each time
         for (int i=0; i<pop.getNbObjects(); i++)
         {
-            ImageHandler imhObjects = ImageHandler.wrap(imArray[i]);
+            ImagePlus resized = imArray[i].resize((int)(imArray[i].getWidth()/factor), (int)(imArray[i].getHeight()/factor), "none");
+            ImageHandler imhObjects = ImageHandler.wrap(resized);
             //System.out.println(nnuc+" "+i+" "+pop.getObject(i).getCenterUnit());
             pop.getObject(i).draw(imhObjects, 125);
             if ( i < pmlPopList.size()){
@@ -896,15 +897,17 @@ public class PML_Tools {
                 int z = (int) ob.getCenterZ();
                 int x = (int) (ob.getCenterX() + meanrad*1.3);
                 int y = (int) (ob.getCenterY() + meanrad*1.3);
-                imArray[i].setSlice(z);
-                ImageProcessor proc = imArray[i].getProcessor();
+                resized.setSlice(z);
+                ImageProcessor proc = resized.getProcessor();
                 proc.setColor(255);
                 proc.setFontSize(30);
                 proc.drawString(""+nnuc, x, y);
-                imArray[i].updateAndDraw();
+                resized.updateAndDraw();
             }
+            imArray[i] = resized.resize(imArray[i].getWidth(), imArray[i].getHeight(), "none");
+            closeImages(resized);
         }
-      }
+     }
     
     
      public ImagePlus drawPMLs(ArrayList<Objects3DPopulation> pmlPopList, ImagePlus[] imgArray) {
@@ -979,9 +982,9 @@ public class PML_Tools {
      
      public void saveWholeImage(ImagePlus[] imgs, String fileName) {
         
-         ImagePlus img = new Concatenator().concatenate(imgs, false);
-        double factor = 500.0/img.getWidth();  // diminue la taille pour pas enregistrer une image trop big
-        ImagePlus resized = img.resize((int)(img.getWidth()*factor), (int)(img.getHeight()*factor), "bilinear");
+        ImagePlus img = new Concatenator().concatenate(imgs, false);
+        //double factor = 500.0/img.getWidth();  // diminue la taille pour pas enregistrer une image trop big
+        //ImagePlus resized = img.resize((int)(img.getWidth()*factor), (int)(img.getHeight()*factor), "bilinear");
         FileSaver fileImg = new FileSaver(img);
         fileImg.saveAsTiff(fileName);
         closeImages(img);
@@ -1063,11 +1066,11 @@ public class PML_Tools {
      /**
      * Save image objects
      */
-    public void drawOnWholeImage(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, Roi roi, int index) {
+    public void drawOnWholeImage(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, Roi roi, int index, double factor) {
         translateRoiBack(nucPop, roi);
         // draw and align PMLs
         translateRoiBack(pmlPopList, roi);
-        drawNucleusPML(nucPop, pmlPopList, imgArray, true, index);
+        drawNucleusPML(nucPop, pmlPopList, imgArray, true, index, factor);
        }
     
     
@@ -1377,7 +1380,8 @@ public class PML_Tools {
     
    /** Looks for the closest nuclei at each time (track it). Loose it if too far from given distance, do it by association instead ? */ 
     public Objects3DPopulation trackNucleus( Object3D obj, ArrayList<Objects3DPopulation> pop) {
-        Objects3DPopulation nucl = new Objects3DPopulation();    
+        Objects3DPopulation nucl = new Objects3DPopulation();
+        if (pop.size()>1){
         for (int i=0; i<pop.size(); i++) {
             Object3D closest = (pop.get(i)).closestCenter(obj.getCenterAsPoint());
             // threshold distance to loose the nuclei (not aligned image so can move)
@@ -1389,6 +1393,8 @@ public class PML_Tools {
             obj = closest;
         }
         return nucl;
+        }
+        return null;
     }
     
     public int[] getBoundingBoxXY(Objects3DPopulation pop) {
