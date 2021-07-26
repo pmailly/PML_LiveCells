@@ -71,9 +71,9 @@ import net.imagej.ImageJ;
 public class PML_Tools {
    
     // min nucleus volume in mic^3
-    private double minNuc = 500;
+    private double minNuc = 250; //500
     // max nucleus volume in micron^3
-    private double maxNuc = 5000;
+    private double maxNuc = 6000; // 5000
     
     // min volume in pixels^3 for dots
     private double minPML = 0.02;
@@ -1318,7 +1318,9 @@ public class PML_Tools {
         ImageInt label3D = ImageInt.wrap(newnuc);
         Objects3DPopulation nucPop = new Objects3DPopulation(label3D);
        closeImages(newnuc);
+       if (verbose) IJ.log("Before size threshold: "+nucPop.getNbObjects()+" nuclei");
        Objects3DPopulation nPop = new Objects3DPopulation(nucPop.getObjectsWithinVolume(minNuc, maxNuc, true));
+       if (verbose) IJ.log("After size threshold: "+nucPop.getNbObjects()+" nuclei");
        return(nPop);
     }
       
