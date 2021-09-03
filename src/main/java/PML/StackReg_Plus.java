@@ -119,7 +119,7 @@ public void run (final String arg)
 	}
         ImagePlus proj = ZProjector.run(imp,"avg all");
 ;       proj.show();
-        runRegister(proj);
+        runRegister(proj, 0);
         proj.changes=false;
         proj.close();
         for ( int i = 0; i < transformers.size(); i++)
@@ -127,17 +127,17 @@ public void run (final String arg)
             Transformer trans = transformers.get(i);
             IJ.run(imp, "Make Substack...", "slices=1-"+imp.getNSlices()+" frames="+(i+1));
             ImagePlus cur = IJ.getImage();
-            trans.doTransformation(cur, false);
+            trans.doTransformation(cur, false, 0);
         }
 }
 
-public ArrayList<Transformer> stackRegister(ImagePlus imp)
+public ArrayList<Transformer> stackRegister(ImagePlus imp, int id)
 {
-    runRegister(imp);
+    runRegister(imp, id);
     return transformers;
 }
 
-public void runRegister(ImagePlus imp)
+public void runRegister(ImagePlus imp, int id)
 {
 	final int transformation = 1; // Rigid-body transformation
 	transformType = transformation;	//SR 2019-09-30: remember transform type
@@ -245,7 +245,7 @@ public void runRegister(ImagePlus imp)
 	}
 	for (int s = targetSlice - 1; (0 < s); s--) {
 		source = registerSlice(source, target, imp, width, height,
-			transformation, globalTransform, anchorPoints, colorWeights, s);
+			transformation, globalTransform, anchorPoints, colorWeights, s, id);
 		if (source == null) {
 			imp.setSlice(targetSlice);
 			return;
@@ -283,7 +283,7 @@ public void runRegister(ImagePlus imp)
 	}
 	for (int s = targetSlice + 1; (s <= imp.getStackSize()); s++) {
 		source = registerSlice(source, target, imp, width, height,
-			transformation, globalTransform, anchorPoints, colorWeights, s);
+			transformation, globalTransform, anchorPoints, colorWeights, s, id);
 		if (source == null) {
 			imp.setSlice(targetSlice);
 			return;
@@ -1013,7 +1013,8 @@ private ImagePlus registerSlice (
 	final double[][] globalTransform,
 	final double[][] anchorPoints,
 	final double[] colorWeights,
-	final int s
+	final int s, 
+        int id
 ) {
 	imp.setSlice(s);
 	try {
@@ -1053,11 +1054,11 @@ private ImagePlus registerSlice (
 		}
 		final FileSaver sourceFile = new FileSaver(source);
 		final String sourcePathAndFileName =
-			IJ.getDirectory("temp") + source.getTitle();
+			IJ.getDirectory("temp") + source.getTitle() + "_" + id + ".tif";
 		sourceFile.saveAsTiff(sourcePathAndFileName);
 		final FileSaver targetFile = new FileSaver(target);
 		final String targetPathAndFileName =
-			IJ.getDirectory("temp") + target.getTitle();
+			IJ.getDirectory("temp") + target.getTitle() + "_" + id + ".tif";
 		targetFile.saveAsTiff(targetPathAndFileName);
 		switch (transformation) {
 			case 0: {
@@ -1205,15 +1206,15 @@ private ImagePlus registerSlice (
 				ImagePlus transformedSourceB = null;
 				final FileSaver sourceFileR = new FileSaver(sourceR);
 				final String sourcePathAndFileNameR =
-					IJ.getDirectory("temp") + sourceR.getTitle();
+					IJ.getDirectory("temp") + sourceR.getTitle( ) + "_" + id + ".tif";
 				sourceFileR.saveAsTiff(sourcePathAndFileNameR);
 				final FileSaver sourceFileG = new FileSaver(sourceG);
 				final String sourcePathAndFileNameG =
-					IJ.getDirectory("temp") + sourceG.getTitle();
+					IJ.getDirectory("temp") + sourceG.getTitle()  + "_" + id + ".tif";
 				sourceFileG.saveAsTiff(sourcePathAndFileNameG);
 				final FileSaver sourceFileB = new FileSaver(sourceB);
 				final String sourcePathAndFileNameB =
-					IJ.getDirectory("temp") + sourceB.getTitle();
+					IJ.getDirectory("temp") + sourceB.getTitle()  + "_" + id + ".tif";
 				sourceFileB.saveAsTiff(sourcePathAndFileNameB);
 				switch (transformation) {
 					case 0: {
@@ -1544,15 +1545,15 @@ private ImagePlus registerSlice (
 				ImagePlus transformedSourceB = null;
 				final FileSaver sourceFileR = new FileSaver(sourceR);
 				final String sourcePathAndFileNameR =
-					IJ.getDirectory("temp") + sourceR.getTitle();
+					IJ.getDirectory("temp") + sourceR.getTitle()  + "_" + id + ".tif";
 				sourceFileR.saveAsTiff(sourcePathAndFileNameR);
-				final FileSaver sourceFileG = new FileSaver(sourceG);
+				final FileSaver sourceFileG = new FileSaver(sourceG) ;
 				final String sourcePathAndFileNameG =
-					IJ.getDirectory("temp") + sourceG.getTitle();
+					IJ.getDirectory("temp") + sourceG.getTitle()  + "_" + id + ".tif";
 				sourceFileG.saveAsTiff(sourcePathAndFileNameG);
 				final FileSaver sourceFileB = new FileSaver(sourceB);
 				final String sourcePathAndFileNameB =
-					IJ.getDirectory("temp") + sourceB.getTitle();
+					IJ.getDirectory("temp") + sourceB.getTitle()  + "_" + id + ".tif";
 				sourceFileB.saveAsTiff(sourcePathAndFileNameB);
 				switch (transformation) {
 					case 0: {

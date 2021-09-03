@@ -198,14 +198,14 @@ public class PML_LiveCells implements PlugIn {
                         //System.out.println(pmlPop.getNbObjects()+" pml found");
                         pmlPopList.add(pmlPop);
                         pmlDiffusInt.add(pml.pmlDiffus(pmlPop, nucObj, imgPML));
-                        pmlInt.add(pml.getPMLIntensity(pmlPop, imgPML));
+                        pmlInt.add(pml.getPMLIntensityDS(pmlPop, imgPML));
                         imgDiffusArray[t] = imgPML;
                     }
                     // no nucleus found
                     if ( failure ) break; 
                     
                     // Align populations
-                    ImagePlus dotBin = pml.alignAndSave(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName, nucIndex, true);
+                    ImagePlus dotBin = pml.alignAndSave(pmlPopList, nucPop, imgDiffusArray, outDirResults+rootName, nucIndex, true, nucIndex);
                     pml.saveDiffusImage(pmlPopList, imgDiffusArray, outDirResults+rootName+"_Diffuse-"+nucIndex+".tif");
                         
                     double meanVol = 0.0;
@@ -215,14 +215,9 @@ public class PML_LiveCells implements PlugIn {
                         double nucVol = nucObj.getVolumeUnit();
                         Objects3DPopulation pmlPop = pmlPopList.get(i);
                         int pmlDots = pmlPop.getNbObjects();
-                        double pmlVolMean = pml.getPMLVolume(pmlPop).getMean();
-                        meanVol += pmlVolMean;        
-                       double pmlVolStd = pml.getPMLVolume(pmlPop).getStandardDeviation();
-                        double pmlVolTotal = pml.getPMLVolume(pmlPop).getSum();
-                        //double minDistCenterMean = pmlPop.distancesAllClosestCenter().getMean(); 
-                        //double minDistCenterSD = pmlPop.distancesAllClosestCenter().getStdDev();
+                        double[] pmlVols = pml.getPMLVolumes(pmlPop);
                         outPutResults.write(i+"\t"+nucVol+"\t"+pmlPop.getNbObjects()+"\t"+pmlDiffusInt.get(i)+"\t"+pmlInt.get(i).getMean()+"\t"
-                                +pmlInt.get(i).getStandardDeviation()+"\t"+pmlVolMean+"\t"+pmlVolStd+"\t"+pmlVolTotal+"\n"); //+minDistCenterMean+"\t"+minDistCenterSD+"\n");
+                                +pmlInt.get(i).getStandardDeviation()+"\t"+pmlVols[0]+"\t"+pmlVols[1]+"\t"+pmlVols[2]+"\n"); //+minDistCenterMean+"\t"+minDistCenterSD+"\n");
                         outPutResults.flush();
                     }                    
                     // Do Tracking

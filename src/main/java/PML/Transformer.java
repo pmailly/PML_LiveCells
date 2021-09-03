@@ -53,7 +53,7 @@ public class Transformer {
     /** \brief Apply the saved transformation with TurboReg 
      * Modify directly the input imageplus
      */
-    public void doTransformation(ImagePlus imp, boolean noblack)
+    public void doTransformation(ImagePlus imp, boolean noblack, int id)
     {
         try 
         {
@@ -68,7 +68,7 @@ public class Transformer {
 					width, height, (short[])imp.getProcessor().getPixels(),
 					imp.getProcessor().getColorModel()));
                 final FileSaver sourceFile = new FileSaver(source);
-                final String sourcePathAndFileName = IJ.getDirectory("temp") + source.getTitle();
+                final String sourcePathAndFileName = IJ.getDirectory("temp") + source.getTitle() + "_"+id+".tif";
                 sourceFile.saveAsTiff(sourcePathAndFileName);
                 turboReg = IJ.runPlugIn("TurboReg_", "-transform"
 							+ " -file " + sourcePathAndFileName

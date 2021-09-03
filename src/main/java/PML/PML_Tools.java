@@ -82,6 +82,9 @@ public class PML_Tools {
     private Calibration cal = new Calibration(); 
     
     public boolean verbose = false;
+    public boolean saveWhole = false;
+    public boolean savePMLImg = true;
+    //public boolean saveDiffus = false;
 
     // dots threshold method
     private String thMet = "Otsu";
@@ -384,6 +387,11 @@ public class PML_Tools {
         gd.addNumericField("Calibration xy (µm)  :", cal.pixelWidth, 3);
         if ( cal.pixelDepth == 1) cal.pixelDepth = 0.5;
         gd.addNumericField("Calibration z (µm)  :", cal.pixelDepth, 3);
+        gd.addMessage("Output options", Font.getFont("Monospace"), Color.blue);
+        gd.addCheckbox("Save all nucleus stack", saveWhole);
+         gd.addCheckbox("Save pml stack", savePMLImg);
+        //gd.addCheckbox("Save diffus", saveDiffus);
+        
         gd.addCheckbox("verbose", verbose);
         gd.showDialog();
         int[] chChoices = new int[channels.length];
@@ -401,6 +409,9 @@ public class PML_Tools {
         cal.pixelWidth = gd.getNextNumber();
         cal.pixelHeight = cal.pixelWidth;
         cal.pixelDepth = gd.getNextNumber();
+        saveWhole = gd.getNextBoolean();
+        savePMLImg = gd.getNextBoolean();
+        //saveDiffus = gd.getNextBoolean();
         verbose = gd.getNextBoolean();
         if (gd.wasCanceled())
                 chChoices = null;
@@ -592,7 +603,7 @@ public class PML_Tools {
     }
     
     /** Find dots with DoG or LoG method, on aligned images */
-      public Objects3DPopulation findDotsAlign(ImagePlus img, ImagePlus nuc, Transformer trans, int dog) {
+      public Objects3DPopulation findDotsAlign(ImagePlus img, ImagePlus nuc, Transformer trans, int dog, int id) {
         ImagePlus imgDots = new Duplicator().run(img);
         //DoG
         if (dog==1){
@@ -613,7 +624,7 @@ public class PML_Tools {
         
         // Do alignement
         if (trans != null) {
-             trans.doTransformation(imgDots, false);
+             trans.doTransformation(imgDots, false, 0);
              // rebinarize
               IJ.setAutoThreshold(imgDots, "Default dark stack");
               Prefs.blackBackground = false;
@@ -638,7 +649,7 @@ public class PML_Tools {
     } 
       
        /** Find dots with StarDist LoG method, on aligned images */
-      public Objects3DPopulation findDotsStarDist(ImagePlus img, ImagePlus nuc, Transformer trans) {
+      public Objects3DPopulation findDotsStarDist(ImagePlus img, ImagePlus nuc, Transformer trans, int id) {
         ImagePlus imgDots = new Duplicator().run(img);
         // clear slices where there is no nucleus 
         clearSlicesWithoutNuclei(imgDots, nuc);
@@ -648,7 +659,7 @@ public class PML_Tools {
         clearSlicesWithoutNuclei(imgDots, nuc);
          // Do alignement
         if (trans != null) {
-             trans.doTransformation(imgDots, true);
+             trans.doTransformation(imgDots, true, id);
         }
         
         // Go StarDist
@@ -757,7 +768,7 @@ public class PML_Tools {
     /**
      * Save image objects
      */
-    public ImagePlus saveImageObjects(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, String pathName, ArrayList<Transformer> trans) {
+    public ImagePlus saveImageObjects(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, String pathName, ArrayList<Transformer> trans, int id) {
         ImagePlus[] hyperBin = new ImagePlus[imgArray.length];
        for (int i=0; i<imgArray.length; i++)
        {
@@ -777,7 +788,7 @@ public class PML_Tools {
             imhObjects.getImagePlus().setSlice(imhObjects.getImagePlus().getNSlices()/2);
             IJ.resetMinAndMax(imhObjects.getImagePlus());
             hyperBin[i] = imhObjects.getImagePlus();
-             if (i>0) (trans.get(i-1)).doTransformation(hyperBin[i], false);
+             if (i>0) (trans.get(i-1)).doTransformation(hyperBin[i], false, id);
         }
        
        ImagePlus hyperRes = new Concatenator().concatenate(hyperBin, false);
@@ -949,14 +960,14 @@ public class PML_Tools {
     }
     
      /** align */
-     public ImagePlus alignStack(ArrayList<Transformer> transformers, ImagePlus imp, boolean rebin) {
+     public ImagePlus alignStack(ArrayList<Transformer> transformers, ImagePlus imp, boolean rebin, int id) {
          ImagePlus[] hyper = new ImagePlus[transformers.size()+1];
          SubHyperstackMaker sub = new SubHyperstackMaker();
          hyper[0] = sub.makeSubhyperstack(imp, "1-1", "1-"+imp.getNSlices(), "1-1");
          for ( int i = 1; i <= transformers.size(); i++) {
             Transformer trans = transformers.get(i-1);
             ImagePlus cur = sub.makeSubhyperstack(imp, "1-1", "1-"+imp.getNSlices(), (i+1)+"-"+(i+1));
-            trans.doTransformation(cur, false);
+            trans.doTransformation(cur, false, id);
             // rebinarize
             if ( rebin ){
                 IJ.setAutoThreshold(cur, "Default dark stack");
@@ -981,7 +992,7 @@ public class PML_Tools {
      }
      
      public void saveWholeImage(ImagePlus[] imgs, String fileName) {
-        
+        if (verbose) IJ.log("Save whole image \n");    
         ImagePlus img = new Concatenator().concatenate(imgs, false);
         //double factor = 500.0/img.getWidth();  // diminue la taille pour pas enregistrer une image trop big
         //ImagePlus resized = img.resize((int)(img.getWidth()*factor), (int)(img.getHeight()*factor), "bilinear");
@@ -995,16 +1006,16 @@ public class PML_Tools {
      /**
      * Save image objects
      */
-    public ImagePlus alignAndSave(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, String root, int index, boolean saveObj) {
+    public ImagePlus alignAndSave(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, String root, int index, boolean saveObj, int id) {
 
       ImagePlus unnucl = drawNucleus(nucPop, imgArray, false, 0);
         // Get transformations to do to align stack
-        ArrayList<Transformer> trans = new StackReg_Plus().stackRegister(stackProj(unnucl));
+        ArrayList<Transformer> trans = new StackReg_Plus().stackRegister(stackProj(unnucl), id);
      
         ImagePlus nucleus = null;
         if (saveObj) {
         // align nucleus stack
-        nucleus = alignStack(trans, unnucl, true);
+        nucleus = alignStack(trans, unnucl, true, id);
          IJ.run(nucleus, "Multiply...", "value=0.5 stack"); 
         }
         closeImages(unnucl);
@@ -1012,7 +1023,7 @@ public class PML_Tools {
          // draw and align PMLs
          ImagePlus unpml = drawPMLs(pmlPopList, imgArray);
          // align pml stack
-         ImagePlus pml = alignStack(trans, unpml, true);
+         ImagePlus pml = alignStack(trans, unpml, true, id);
          closeImages(unpml);
 
          
@@ -1031,6 +1042,17 @@ public class PML_Tools {
         return pml;      
     }
       
+    public ImagePlus drawOneNucleiWithPMLOneTime(Objects3DPopulation pmlPop, ImagePlus nucleus) {
+            IJ.run(nucleus, "Multiply...", "value=0.5 stack"); 
+            // draw PMLs on the stack
+            if ( pmlPop != null ){
+                ImageHandler imh = ImageHandler.wrap(nucleus);
+                pmlPop.draw(imh, 255);
+                return imh.getImagePlus();
+             }  
+            return nucleus;
+    }
+    
      /**
      * Save image objects
      */
@@ -1102,17 +1124,27 @@ public class PML_Tools {
     
     
     /**
-     * Get total pml volume
+     * Get total pml volume: mean, std, sum
      * @param pmlPop
      * @return 
      */
-    public DescriptiveStatistics getPMLVolume(Objects3DPopulation pmlPop) {
-        DescriptiveStatistics pmlVolume = new DescriptiveStatistics();
-        for (int i = 0; i < pmlPop.getNbObjects(); i++) {
-            Object3D pmlObj = pmlPop.getObject(i);
-            pmlVolume.addValue(pmlObj.getVolumeUnit());
+    public double[] getPMLVolumes(Objects3DPopulation pmlPop) {
+        double[] res = new double[]{0,0,0};
+        int n = pmlPop.getNbObjects();
+        if (n==0) return res;
+        // calculate mean
+        for (int i = 0; i < n; i++) {
+            double vol = (pmlPop.getObject(i)).getVolumeUnit();
+            res[0] += vol;
         }
-        return(pmlVolume);
+        res[2] = res[0];
+        res[0] /= n;
+        for (int i = 0; i < n; i++) {
+            double vol = (pmlPop.getObject(i)).getVolumeUnit();
+            res[1] += (vol-res[0])*(vol-res[0]);
+        }
+        res[1] = Math.sqrt(res[1])/n;
+        return res;
     }
     
 
@@ -1122,7 +1154,7 @@ public class PML_Tools {
      * @param img
      * @return 
      */
-    public DescriptiveStatistics getPMLIntensity(Objects3DPopulation pmlPop, ImagePlus img) {
+    public double[] getPMLIntensity(Objects3DPopulation pmlPop, ImagePlus img) {
         DescriptiveStatistics pmlInt = new DescriptiveStatistics();
         ImageHandler imh = ImageHandler.wrap(img);
         for (int i = 0; i < pmlPop.getNbObjects(); i++) {
@@ -1130,7 +1162,17 @@ public class PML_Tools {
             pmlInt.addValue(pmlObj.getIntegratedDensity(imh));
         }
         imh.closeImagePlus();
-        return(pmlInt);
+        return new double[]{pmlInt.getMean(), pmlInt.getStandardDeviation()};
+    }
+      public DescriptiveStatistics getPMLIntensityDS(Objects3DPopulation pmlPop, ImagePlus img) {
+        DescriptiveStatistics pmlInt = new DescriptiveStatistics();
+        ImageHandler imh = ImageHandler.wrap(img);
+        for (int i = 0; i < pmlPop.getNbObjects(); i++) {
+            Object3D pmlObj = pmlPop.getObject(i);
+            pmlInt.addValue(pmlObj.getIntegratedDensity(imh));
+        }
+        imh.closeImagePlus();
+        return pmlInt;
     }
     
      /** \brief keep only where enough signal and draw binary mask */
