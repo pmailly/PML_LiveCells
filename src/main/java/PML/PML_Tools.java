@@ -117,6 +117,7 @@ public class PML_Tools {
     public final ImageIcon icon = new ImageIcon(this.getClass().getResource("/Orion_icon.png"));
     
     public static Object syncObject = new Object();
+    public static Object transSyncObject = new Object();
     private File tmpModelFile = null;
     protected URL modelUrl = PML_Tools.class.getClassLoader().getResource("models/dsb2018_heavy_augment.zip");
     public String stage = "";
@@ -685,7 +686,7 @@ public class PML_Tools {
     } 
       
        /** Find dots with StarDist LoG method, on aligned images */
-      public Objects3DPopulation findDotsStarDist(ImagePlus img, ImagePlus nuc, Transformer trans, int id) {
+      public Objects3DPopulation findDotsStarDist(ImagePlus img, ImagePlus nuc, Transformer trans, int id, boolean sync) {
         ImagePlus imgDots = new Duplicator().run(img);
         // clear slices where there is no nucleus 
         clearSlicesWithoutNuclei(imgDots, nuc);
@@ -695,14 +696,20 @@ public class PML_Tools {
         clearSlicesWithoutNuclei(imgDots, nuc);
          // Do alignement
         if (trans != null) {
+            if (sync){
+                synchronized(transSyncObject){
              trans.doTransformation(imgDots, true, id);
+            }
+            } else {
+                 trans.doTransformation(imgDots, true, id);
+            }
         }
         
         // Go StarDist
         StarDist2D star;
-        synchronized(this){
+        //synchronized(this){
             star = new StarDist2D(syncObject, tmpModelFile);
-        }
+        //}
         star.loadInput(imgDots);
         star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThreshPML, stardistOverlayThreshPML, stardistOutput);
         star.run();
@@ -1339,7 +1346,9 @@ public class PML_Tools {
         double factor = 300.0/imgNuc.getWidth();
         ImagePlus resized = imgNuc.resize((int)(imgNuc.getWidth()*factor), (int)(imgNuc.getHeight()*factor), "bilinear");
         StarDist2D star;
-        synchronized(syncObject){ star = new StarDist2D(syncObject, tmpModelFile);}
+        //synchronized(syncObject){ 
+            star = new StarDist2D(syncObject, tmpModelFile);
+        //}
         star.loadInput(resized);
         star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistOutput);
         star.run();
@@ -1419,7 +1428,9 @@ public class PML_Tools {
         double factor = 40.0/imgNuc.getWidth();
         ImagePlus resized = imgNuc.resize((int)(imgNuc.getWidth()*factor), (int)(imgNuc.getHeight()*factor), "bilinear");
            StarDist2D star;
-        synchronized(syncObject){ star = new StarDist2D(syncObject, tmpModelFile);}
+        //synchronized(syncObject){ 
+            star = new StarDist2D(syncObject, tmpModelFile);
+        //}
         star.loadInput(resized);
         star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistOutput);
         star.run();

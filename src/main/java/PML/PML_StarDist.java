@@ -259,7 +259,7 @@ public class PML_StarDist implements PlugIn {
                                     if (pml.trackMate_Detector_Method.equals("LoG"))
                                         pmlPop = pml.findDotsAlign(imgPML, anucleus, curtrans, 0, nucIndex);
                                     if (pml.trackMate_Detector_Method.equals("StarDist"))
-                                        pmlPop = pml.findDotsStarDist(imgPML, anucleus, curtrans, nucIndex);
+                                        pmlPop = pml.findDotsStarDist(imgPML, anucleus, curtrans, nucIndex, false);
 
                                      // draw current time point
                                      dotBins[t] = pml.drawOneNucleiWithPMLOneTime(pmlPop, anucleus); 
