@@ -62,7 +62,7 @@ public class StarDist2D extends StarDist2DBase implements Command {
     // ---------
 
     private File modelFile;
-    protected URL modelUrl = StarDist2D.class.getClassLoader().getResource("models/dsb2018_heavy_augment.zip");
+   
     private int nTiles = 1;
     private int excludeBoundary = 2;  // boundary_exclusion
     private String roiPosition = "Automatic";
@@ -71,14 +71,19 @@ public class StarDist2D extends StarDist2DBase implements Command {
     private boolean showCsbdeepProgress = false;
     private boolean showProbAndDist = false;
     private ImageJ ij;
+    private Object obj_;
+    private File tmpModelFile_ = null;
+    
     
     private int max = 0; // for association labels
     
-    public StarDist2D() {
+    public StarDist2D(Object obj, File tmpModelFile) {
          ij = new ImageJ();
          ij.launch();
         dataset = ij.dataset();
         command = ij.command();
+        obj_ = obj;
+        tmpModelFile_ = tmpModelFile;
     }
     
     private void checkForCSBDeep() {
@@ -117,7 +122,6 @@ public class StarDist2D extends StarDist2DBase implements Command {
         else
             roiPositionActive = roiPosition;
 
-        File tmpModelFile = null;
         try {
             final HashMap<String, Object> paramsCNN = new HashMap<>();
             paramsCNN.put("input", input);
@@ -130,10 +134,7 @@ public class StarDist2D extends StarDist2DBase implements Command {
             paramsCNN.put("overlap", 64);
             paramsCNN.put("batchSize", 1);
             paramsCNN.put("showProgressDialog", showCsbdeepProgress);
-            tmpModelFile = File.createTempFile("stardist_model_", ".zip");
-            Files.copy(modelUrl.openStream(), tmpModelFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            paramsCNN.put("modelFile", tmpModelFile);
-            
+            paramsCNN.put("modelFile", tmpModelFile_);          
             final HashMap<String, Object> paramsNMS = new HashMap<>();
             paramsNMS.put("probThresh", probThresh);
             paramsNMS.put("nmsThresh", nmsThresh);
@@ -156,9 +157,11 @@ public class StarDist2D extends StarDist2DBase implements Command {
                             Views.hyperSlice(inputImgPlus, inputTimeDim, t),
                             inputAxes.stream().filter(axis -> axis != Axes.TIME));
                     paramsCNN.put("input", inputFrameDS);
+                    final Dataset prediction;
+                    synchronized(obj_){
                     final Future<CommandModule> futureCNN = command.run(de.csbdresden.csbdeep.commands.GenericNetwork.class, false, paramsCNN);
-                    final Dataset prediction = (Dataset) futureCNN.get().getOutput("output");
-
+                    prediction = (Dataset) futureCNN.get().getOutput("output");
+                    }
                     final Pair<Dataset, Dataset> probAndDist = splitPrediction(prediction);
                     final Dataset probDS = probAndDist.getA();
                     final Dataset distDS = probAndDist.getB();
@@ -168,11 +171,12 @@ public class StarDist2D extends StarDist2DBase implements Command {
                     if (showProbAndDist) {
                         if (t==0) log.error(String.format("\"%s\" not implemented/supported for timelapse data.", "Show CNN Output"));
                     }
-
                     final Future<CommandModule> futureNMS = command.run(StarDist2DNMS.class, false, paramsNMS);
+                    
                     final Candidates polygons = (Candidates) futureNMS.get().getOutput("polygons");
+                    
                     export(outputType, polygons, 1+t, numFrames, roiPositionActive);
-
+                     
                     IJ.showProgress(1+t, (int)numFrames);
                 }
                 
@@ -206,16 +210,7 @@ public class StarDist2D extends StarDist2DBase implements Command {
             
         } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
-        } catch (IOException ex) {
-            Logger.getLogger(StarDist2D.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            try {
-                if (tmpModelFile != null && tmpModelFile.exists())
-                    tmpModelFile.delete();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
+        } 
     }
 
     // this function is very cumbersome... is there a better way to do this?
@@ -357,7 +352,7 @@ public class StarDist2D extends StarDist2DBase implements Command {
         return tracked.getImagePlus();
     }
     
-    public void setParams(double percentileBottomVar, double percentileTopVar, double probThreshVar, double overlapThreshVar, String model, String outPutType){
+    public void setParams(double percentileBottomVar, double percentileTopVar, double probThreshVar, double overlapThreshVar, String outPutType){
     /*try {*/
 
     percentileBottom = percentileBottomVar;
@@ -365,7 +360,6 @@ public class StarDist2D extends StarDist2DBase implements Command {
     probThresh = probThreshVar;
     nmsThresh = overlapThreshVar;
     outputType = outPutType;
-    modelUrl = StarDist2D.class.getClassLoader().getResource("models/"+model);
     /*switch(modelType){
         case "file" :
             paramCNN.put("modelFile", model);

@@ -152,7 +152,7 @@ public class PML_StarDist implements PlugIn {
                             imgNuc = BF.openImagePlus(options)[0];
                         } else {
                             // faster ??
-                            imgNuc = IJ.openImage(inDir+"/"+rootName+"_"+chsName[channelIndex[0]]+"_t"+(t+1)+".TIF");    
+                            imgNuc = IJ.openImage(inDir+"/"+rootName+"_"+chsName[channelIndex[0]]+pml.stage+"_t"+(t+1)+".TIF");    
                         }
                        imgNuc.setCalibration(cal);          
                        if (pml.saveWhole){
@@ -228,7 +228,7 @@ public class PML_StarDist implements PlugIn {
                             ImagePlus[] pmlImgs = null;
                             if (pml.savePMLImg) pmlImgs = new ImagePlus[nuctime];
                             for (int t = 0; t < nuctime; t++) { 
-                                 if (pml.verbose) IJ.log("Working on nuclei "+nucIndex+" time "+t+"∕"+nuctime);
+                                 if (pml.verbose) IJ.log("Working on nuclei "+nucIndex+" time "+pml.stage+t+"∕"+nuctime);
 
                                  ImagePlus imgPML;
                                   // Open pml channel
@@ -307,6 +307,7 @@ public class PML_StarDist implements PlugIn {
                     if (pml.saveWhole) pml.saveWholeImage(imgWholeArray, outDirResults+rootName+"_ObjectsLowRes.tif");
              }
             IJ.showStatus("Process done"); 
+            pml.deleteTmpModelFileStarDist();
         } catch (DependencyException ex) {
             Logger.getLogger(PML_LiveCells.class.getName()).log(Level.SEVERE, null, ex);
         } catch (ServiceException ex) {

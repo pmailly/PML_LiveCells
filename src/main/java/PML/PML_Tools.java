@@ -53,7 +53,12 @@ import StardistPML.StarDist2D;
 import ij.plugin.RoiEnlarger;
 import ij.plugin.RoiScaler;
 import ij.plugin.frame.RoiManager;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import net.imagej.Dataset;
 import net.imagej.ImageJ;
 
@@ -110,6 +115,30 @@ public class PML_Tools {
     public CLIJ2 clij2 = CLIJ2.getInstance();
     
     public final ImageIcon icon = new ImageIcon(this.getClass().getResource("/Orion_icon.png"));
+    
+    public static Object syncObject = new Object();
+    private File tmpModelFile = null;
+    protected URL modelUrl = PML_Tools.class.getClassLoader().getResource("models/dsb2018_heavy_augment.zip");
+    public String stage = "";
+        
+    
+    public void copyModelFileStarDist(){
+        try {
+             tmpModelFile = File.createTempFile("stardist_model_", ".zip"); 
+             Files.copy(modelUrl.openStream(), tmpModelFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException ex) {
+            Logger.getLogger(PML_Tools.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    } 
+    
+    public void deleteTmpModelFileStarDist(){
+         try {
+                if (tmpModelFile != null && tmpModelFile.exists())
+                    tmpModelFile.delete();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+    }
     
      /**
      * check  installed modules
@@ -372,6 +401,7 @@ public class PML_Tools {
             gd.addChoice(chNames[index]+" : ", channels, channels[index]);
             index++;
         }
+        gd.addStringField("Stage position (write s1 if in the filenames)", "");
         gd.addMessage("PML parameters", Font.getFont("Monospace"), Color.blue);
         gd.addNumericField("Min PML size (µm3) : ", minPML, 3);
         gd.addNumericField("Max PML size (µm3) : ", maxPML, 3);
@@ -398,6 +428,8 @@ public class PML_Tools {
         for (int n = 0; n < chChoices.length; n++) {
             chChoices[n] = ArrayUtils.indexOf(channels, gd.getNextChoice());
         }
+        stage = gd.getNextString();
+        if (!stage.equals("")) stage = "_"+stage;
         minPML = gd.getNextNumber();
         maxPML = gd.getNextNumber();
         thMet = gd.getNextChoice();
@@ -413,6 +445,10 @@ public class PML_Tools {
         savePMLImg = gd.getNextBoolean();
         //saveDiffus = gd.getNextBoolean();
         verbose = gd.getNextBoolean();
+        
+        // initialize stardist model
+         if (trackMate_Detector_Method.equals("StarDist")) copyModelFileStarDist();
+        
         if (gd.wasCanceled())
                 chChoices = null;
         return(chChoices);
@@ -663,9 +699,12 @@ public class PML_Tools {
         }
         
         // Go StarDist
-        StarDist2D star = new StarDist2D();
+        StarDist2D star;
+        synchronized(this){
+            star = new StarDist2D(syncObject, tmpModelFile);
+        }
         star.loadInput(imgDots);
-        star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThreshPML, stardistOverlayThreshPML, stardistModel, stardistOutput);
+        star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThreshPML, stardistOverlayThreshPML, stardistOutput);
         star.run();
         closeImages(imgDots);
         // label in 3D
@@ -1299,9 +1338,10 @@ public class PML_Tools {
     public ImagePlus stardistNuclei(ImagePlus imgNuc){
         double factor = 300.0/imgNuc.getWidth();
         ImagePlus resized = imgNuc.resize((int)(imgNuc.getWidth()*factor), (int)(imgNuc.getHeight()*factor), "bilinear");
-        StarDist2D star = new StarDist2D();
+        StarDist2D star;
+        synchronized(syncObject){ star = new StarDist2D(syncObject, tmpModelFile);}
         star.loadInput(resized);
-        star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistModel, stardistOutput);
+        star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistOutput);
         star.run();
     
         // try to get rid of extreme slices without nuclei
@@ -1349,9 +1389,12 @@ public class PML_Tools {
         clearSlicesWithoutSignal(resized);
         //show(resized);
 // Go StarDist
-        StarDist2D star = new StarDist2D();
+           StarDist2D star;
+        //synchronized(syncObject){ 
+        star = new StarDist2D(syncObject, tmpModelFile);
+    //}
         star.loadInput(resized);
-        star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistModel, stardistOutput);
+        star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistOutput);
         star.run();
         closeImages(resized);
         // label in 3D
@@ -1375,9 +1418,10 @@ public class PML_Tools {
     public Object3D stardistRoi(ImagePlus imgNuc){
         double factor = 40.0/imgNuc.getWidth();
         ImagePlus resized = imgNuc.resize((int)(imgNuc.getWidth()*factor), (int)(imgNuc.getHeight()*factor), "bilinear");
-        StarDist2D star = new StarDist2D();
+           StarDist2D star;
+        synchronized(syncObject){ star = new StarDist2D(syncObject, tmpModelFile);}
         star.loadInput(resized);
-        star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistModel, stardistOutput);
+        star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistOutput);
         star.run();
         
         // try to get rid of extreme slices without nuclei
