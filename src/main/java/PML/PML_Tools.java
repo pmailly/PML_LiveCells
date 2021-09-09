@@ -17,7 +17,6 @@ import ij.plugin.ImageCalculator;
 import ij.plugin.SubHyperstackMaker;
 import ij.plugin.Thresholder;
 import ij.plugin.ZProjector;
-import ij.process.AutoThresholder;
 import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
 import java.awt.Color;
@@ -56,11 +55,8 @@ import ij.plugin.frame.RoiManager;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import net.imagej.Dataset;
-import net.imagej.ImageJ;
 
         
  /*
@@ -477,6 +473,7 @@ public class PML_Tools {
   /**
      * Nucleus segmentation
      * @param imgNuc
+     * @param t current time
      * @return 
      */
     public Object3D findnucleus(ImagePlus imgNuc, int t) {
@@ -517,14 +514,6 @@ public class PML_Tools {
         closeImages(globalBin);
         ImagePlus imgStack = new ImagePlus("Nucleus", stack);
         imgStack.setCalibration(imgNuc.getCalibration());
-        // Apply transformation and rebinarize
-        /**if (t > 0){
-            trans.get(t - 1).doTransformation(imgStack);
-            IJ.setAutoThreshold(imgStack, "Default dark stack");
-            Prefs.blackBackground = false;
-            IJ.run(imgStack, "Convert to Mask", "method=Default background=Dark stack");
-         }*/
-          
         Objects3DPopulation nucPop = new Objects3DPopulation(getPopFromImage(imgStack).getObjectsWithinVolume(minNuc, maxNuc, true));
         // Find bigger object
         int ind = 0;    
@@ -698,30 +687,27 @@ public class PML_Tools {
         if (trans != null) {
             if (sync){
                 synchronized(transSyncObject){
-             trans.doTransformation(imgDots, true, id);
-            }
+                    trans.doTransformation(imgDots, true, id);
+                }
             } else {
                  trans.doTransformation(imgDots, true, id);
             }
         }
         
         // Go StarDist
-        StarDist2D star;
-        //synchronized(this){
-            star = new StarDist2D(syncObject, tmpModelFile);
-        //}
+        StarDist2D star = new StarDist2D(syncObject, tmpModelFile);
         star.loadInput(imgDots);
         star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThreshPML, stardistOverlayThreshPML, stardistOutput);
         star.run();
         closeImages(imgDots);
+        
         // label in 3D
         ImagePlus pmls = star.associateLabels();
         pmls.setCalibration(cal);
-        
-        ImageInt label3D = ImageInt.wrap(pmls);
         Objects3DPopulation pop = new Objects3DPopulation(pmls);;
-       closeImages(pmls);
-       Objects3DPopulation pmlPop = new Objects3DPopulation(pop.getObjectsWithinVolume(minPML, maxPML, true));
+        closeImages(pmls);
+       
+        Objects3DPopulation pmlPop = new Objects3DPopulation(pop.getObjectsWithinVolume(minPML, maxPML, true));
         for ( int i = 0; i < pmlPop.getNbObjects(); i++)
         {
             Object3D obj = pmlPop.getObject(i);
@@ -828,13 +814,12 @@ public class PML_Tools {
             {
                 Object3D pmlObj = pmlPop.getObject(o);
                 pmlObj.draw(imhObjects, 255);
-            // labelsObject(pmlObj, imhObjects.getImagePlus(), o, 255);saveI
             }
             imhObjects.getImagePlus().setCalibration(cal);
             imhObjects.getImagePlus().setSlice(imhObjects.getImagePlus().getNSlices()/2);
             IJ.resetMinAndMax(imhObjects.getImagePlus());
             hyperBin[i] = imhObjects.getImagePlus();
-             if (i>0) (trans.get(i-1)).doTransformation(hyperBin[i], false, id);
+            if (i>0) (trans.get(i-1)).doTransformation(hyperBin[i], false, id);
         }
        
        ImagePlus hyperRes = new Concatenator().concatenate(hyperBin, false);
@@ -1174,11 +1159,11 @@ public class PML_Tools {
      * @param pmlPop
      * @return 
      */
-    public double[] getPMLVolumes(Objects3DPopulation pmlPop) {
-        double[] res = new double[]{0,0,0};
+    public String getPMLVolumesAsString(Objects3DPopulation pmlPop) {
         int n = pmlPop.getNbObjects();
-        if (n==0) return res;
+        if (n==0) return "0\t0\t0";
         // calculate mean
+        double[] res = new double[]{0,0,0};
         for (int i = 0; i < n; i++) {
             double vol = (pmlPop.getObject(i)).getVolumeUnit();
             res[0] += vol;
@@ -1190,7 +1175,9 @@ public class PML_Tools {
             res[1] += (vol-res[0])*(vol-res[0]);
         }
         res[1] = Math.sqrt(res[1])/n;
-        return res;
+        String vols = ""+(res[0]+"\t"+res[1]+"\t"+res[2]);
+        res = null;
+        return vols;
     }
     
 
@@ -1200,7 +1187,7 @@ public class PML_Tools {
      * @param img
      * @return 
      */
-    public double[] getPMLIntensity(Objects3DPopulation pmlPop, ImagePlus img) {
+    public String getPMLIntensity(Objects3DPopulation pmlPop, ImagePlus img) {
         DescriptiveStatistics pmlInt = new DescriptiveStatistics();
         ImageHandler imh = ImageHandler.wrap(img);
         for (int i = 0; i < pmlPop.getNbObjects(); i++) {
@@ -1208,7 +1195,9 @@ public class PML_Tools {
             pmlInt.addValue(pmlObj.getIntegratedDensity(imh));
         }
         imh.closeImagePlus();
-        return new double[]{pmlInt.getMean(), pmlInt.getStandardDeviation()};
+        String res = pmlInt.getMean()+"\t"+pmlInt.getStandardDeviation();
+        pmlInt = null;
+        return res;
     }
       public DescriptiveStatistics getPMLIntensityDS(Objects3DPopulation pmlPop, ImagePlus img) {
         DescriptiveStatistics pmlInt = new DescriptiveStatistics();
@@ -1381,27 +1370,28 @@ public class PML_Tools {
         new WaitForUserDialog("debug").show();
     }
     
+    public void closeImageInt(ImageInt img){
+        img.flush();
+        img.closeImagePlus();
+    }
+    
      /** Look for all nuclei
      Do z slice by slice stardist 
      * return nuclei population
      */
     public Objects3DPopulation stardistNucleiPop(ImagePlus imgNuc){
         // resize to be in a stardist-friendly scale
-        double factor = 300.0/imgNuc.getWidth();
         int width = imgNuc.getWidth();
         int height = imgNuc.getHeight();
-        ImagePlus resized = imgNuc.resize((int)(width*factor), (int)(height*factor), "bilinear");
+        int newwidth = 300;
+        ImagePlus resized = imgNuc.resize(newwidth, (int)(height*newwidth*1.0/width), "bilinear");
         resized.setCalibration(cal);
         closeImages(imgNuc);
         IJ.run(resized, "Remove Outliers", "block_radius_x=2 block_radius_y=2 standard_deviations=1 stack");
         // clear slices on which there is no signal before to stardist it (to do: add in stardist a test if image is empty ?)
         clearSlicesWithoutSignal(resized);
-        //show(resized);
-// Go StarDist
-           StarDist2D star;
-        //synchronized(syncObject){ 
-        star = new StarDist2D(syncObject, tmpModelFile);
-    //}
+        // Go StarDist
+        StarDist2D star = new StarDist2D(syncObject, tmpModelFile);
         star.loadInput(resized);
         star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistOutput);
         star.run();
@@ -1414,9 +1404,11 @@ public class PML_Tools {
         closeImages(nuclei);
         ImageInt label3D = ImageInt.wrap(newnuc);
         Objects3DPopulation nucPop = new Objects3DPopulation(label3D);
-       closeImages(newnuc);
+        closeImages(newnuc);
+        closeImageInt(label3D); // close newnuc too?
        if (verbose) IJ.log("Before size threshold: "+nucPop.getNbObjects()+" nuclei");
        Objects3DPopulation nPop = new Objects3DPopulation(nucPop.getObjectsWithinVolume(minNuc, maxNuc, true));
+       nucPop = null;
        if (verbose) IJ.log("After size threshold: "+nPop.getNbObjects()+" nuclei");
        return(nPop);
     }
@@ -1508,13 +1500,10 @@ public class PML_Tools {
     }
 
     public void translateToRoi( Objects3DPopulation pop, int[] roi) {
-        //Objects3DPopulation res = new Objects3DPopulation();
         for (int k=0; k<pop.getNbObjects(); k++) {
                 Object3D obj = pop.getObject(k);
                 obj.translate(-roi[0], -roi[2], 0);
-               // res.addObject(obj);
         }
-        //return res;
     }
     
      public void translateRoiBack( Objects3DPopulation pop, Roi roi) {

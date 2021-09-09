@@ -13,22 +13,12 @@ import fiji.plugin.trackmate.Settings;
 import fiji.plugin.trackmate.Spot;
 import fiji.plugin.trackmate.SpotCollection;
 import fiji.plugin.trackmate.TrackMatePlugIn_;
-import fiji.plugin.trackmate.action.ExportTracksToXML;
 import fiji.plugin.trackmate.detection.DogDetectorFactory;
 import fiji.plugin.trackmate.detection.LogDetectorFactory;
 import fiji.plugin.trackmate.detection.ManualDetectorFactory;
 import fiji.plugin.trackmate.features.edges.EdgeAnalyzer;
-import fiji.plugin.trackmate.features.edges.EdgeTargetAnalyzer;
-import fiji.plugin.trackmate.features.edges.EdgeTimeLocationAnalyzer;
-import fiji.plugin.trackmate.features.edges.EdgeVelocityAnalyzer;
-import fiji.plugin.trackmate.features.manual.ManualSpotColorAnalyzerFactory;
 import fiji.plugin.trackmate.features.spot.SpotAnalyzerFactory;
 import fiji.plugin.trackmate.features.track.TrackAnalyzer;
-import fiji.plugin.trackmate.features.track.TrackDurationAnalyzer;
-import fiji.plugin.trackmate.features.track.TrackIndexAnalyzer;
-import fiji.plugin.trackmate.features.track.TrackLocationAnalyzer;
-import fiji.plugin.trackmate.features.track.TrackSpeedStatisticsAnalyzer;
-import fiji.plugin.trackmate.features.track.TrackSpotQualityFeatureAnalyzer;
 import fiji.plugin.trackmate.io.TmXmlWriter;
 import fiji.plugin.trackmate.providers.EdgeAnalyzerProvider;
 import fiji.plugin.trackmate.providers.SpotAnalyzerProvider;
@@ -56,8 +46,6 @@ import mcib3d.geom.Vector3D;
 
 public class TrackMater extends TrackMatePlugIn_ {
     
-    //private PML_Tools pml = new PML_Tools();
-   
     private Logger logger = new LogRecorder( Logger.DEFAULT_LOGGER );
     private String welcomeMessage;
     private int nSpots = 0;
@@ -199,10 +187,14 @@ public class TrackMater extends TrackMatePlugIn_ {
 		nSpots = 0;
                 double q = 1.;
                 int t = 0;
+                int sizepop = pmlPopList.size();
                 // Read each time point population
-		for ( Objects3DPopulation pop: pmlPopList )
+                while (!pmlPopList.isEmpty())
+		//for ( Objects3DPopulation pop: pmlPopList )
 		{
-                    logger.setProgress( ( double ) nSpots / pmlPopList.size() );
+                    Objects3DPopulation pop = pmlPopList.get(0);
+                    pmlPopList.remove(0);
+                    logger.setProgress( ( double ) nSpots / sizepop );
 
                     // list of objects at time t
                     Set< Spot > list = new HashSet<>();
@@ -219,6 +211,7 @@ public class TrackMater extends TrackMatePlugIn_ {
                         list.add( spot );
                     }
                     t++;
+                    pop = null;
                 }	
 		
 		logger.log( String.format( "Parsing done. Loaded %d objects.\n", nSpots ) );
@@ -260,21 +253,8 @@ public class TrackMater extends TrackMatePlugIn_ {
                 return;
         }
         
-        // Export results to XML
-//        final String export_path_str = exportfile;
-//        final File export_path = new File( export_path_str );
-//        try
-//        {
-//                ExportTracksToXML.export( model, settings, export_path );
-//        }
-//        catch ( final Exception e )
-//        {
-//                IJ.error( "When exporting to " + export_path + ", file not found:\n" + e.getMessage() + '\n' );
-//                return;
-//        }
-      
-        
-         // Export statistics file ?        
+
+       // Export statistics file ?        
         final SelectionModel selectionModel = new SelectionModel( model );
         ExportStats stat = new ExportStats(selectionModel);
         stat.execute(trackmate);

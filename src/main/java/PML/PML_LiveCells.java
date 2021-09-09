@@ -215,9 +215,9 @@ public class PML_LiveCells implements PlugIn {
                         double nucVol = nucObj.getVolumeUnit();
                         Objects3DPopulation pmlPop = pmlPopList.get(i);
                         int pmlDots = pmlPop.getNbObjects();
-                        double[] pmlVols = pml.getPMLVolumes(pmlPop);
+                        String pmlVols = pml.getPMLVolumesAsString(pmlPop);
                         outPutResults.write(i+"\t"+nucVol+"\t"+pmlPop.getNbObjects()+"\t"+pmlDiffusInt.get(i)+"\t"+pmlInt.get(i).getMean()+"\t"
-                                +pmlInt.get(i).getStandardDeviation()+"\t"+pmlVols[0]+"\t"+pmlVols[1]+"\t"+pmlVols[2]+"\n"); //+minDistCenterMean+"\t"+minDistCenterSD+"\n");
+                                +pmlInt.get(i).getStandardDeviation()+"\t"+pmlVols+"\n"); //+minDistCenterMean+"\t"+minDistCenterSD+"\n");
                         outPutResults.flush();
                     }                    
                     // Do Tracking

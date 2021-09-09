@@ -267,13 +267,12 @@ public class PML_StarDist implements PlugIn {
                                     if (t>0) (trans.get(t-1)).doTransformation(imgPML, false, nucIndex);
 
                                     int pmlNbDots = pmlPop.getNbObjects();
-                                    double[] pmlVols = pml.getPMLVolumes(pmlPop);
-                                    double[] pmlInt = pml.getPMLIntensity(pmlPop, imgPML);
+                                    String pmlVols = pml.getPMLVolumesAsString(pmlPop);
+                                    String pmlInt = pml.getPMLIntensity(pmlPop, imgPML);
                                     if ( pml.savePMLImg) pmlImgs[t] = imgPML.duplicate();
                                     pml.closeImages(imgPML);
                                     double nucleusVolume = (nuc.getObject(t)).getVolumeUnit();
-                                    outPutResults.write((t+1)+"\t"+nucleusVolume+"\t"+pmlNbDots+"\t"+pmlInt[0]+"\t"
-                                        +pmlInt[1]+"\t"+pmlVols[0]+"\t"+pmlVols[1]+"\t"+pmlVols[2]+"\n"); 
+                                    outPutResults.write((t+1)+"\t"+nucleusVolume+"\t"+pmlNbDots+"\t"+pmlInt+"\t"+pmlVols+"\n"); 
                                     outPutResults.flush();
                             }
 

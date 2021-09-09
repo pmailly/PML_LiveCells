@@ -2,12 +2,11 @@ package PML;
 
 import ij.IJ;
 import ij.ImagePlus;
-import ij.gui.WaitForUserDialog;
 import ij.io.FileSaver;
 import ij.process.ImageConverter;
 import ij.process.ImageStatistics;
 import ij.process.ShortProcessor;
-import ij3d.behaviors.WaitForNextFrameBehavior;
+import java.io.File;
 import java.lang.reflect.Method;
 
 /**
@@ -58,7 +57,7 @@ public class Transformer {
         try 
         {
             Object turboReg = null;
-            IJ.run(imp, "16-bit","");
+            if (imp.getBitDepth()!=16) IJ.run(imp, "16-bit","");
             imp.setSlice(imp.getNSlices()/2);
             ImageStatistics stat = imp.getStatistics();
             for ( int z=1; z<=imp.getNSlices(); z++)
@@ -98,23 +97,30 @@ public class Transformer {
                 final ImageConverter converter = new ImageConverter(transformedSource);
                 converter.convertToGray16();
                 imp.setProcessor(null, transformedSource.getProcessor());
-               }        
+             
+                // delete temp file
+                File tmpFile = new File(sourcePathAndFileName);
+                if (tmpFile != null && tmpFile.exists()) tmpFile.delete();
+                final String targetPathAndFileName = IJ.getDirectory("temp") + "StackRegTarget" + "_"+id+".tif";
+                File tmpFileT = new File(targetPathAndFileName);
+                if (tmpFileT != null && tmpFileT.exists()) tmpFileT.delete();
+                source.changes = false;
+                source.close();
+            }        
             if (noblack) { 
                 double newval = stat.mean - 1*stat.stdDev;    
                 IJ.run(imp, "Macro...", "code=v=v+(v==0)*"+newval+" stack");
             }
+           
         }
         catch (Exception e)
         {
             IJ.log("Error in alignement with TurboReg "+e.toString());
             IJ.log("Continue");
-            //imp.show();
-            //new WaitForUserDialog("test").show();
             return;
         }
     }
-    
-    
+      
     
     
 }
