@@ -181,8 +181,10 @@ public class PML_StarDist_Parallel2 implements PlugIn {
                                             //Open nucleus channel
                                             imgNuc = BF.openImagePlus(newopt)[0];
                                         } else {
-                                            // faster ??
-                                            imgNuc = IJ.openImage(inDir+"/"+rootName+"_"+chsName[channelIndex[0]]+pml.stage+"_t"+(t+1)+".TIF");    
+                                            String imageName = inDir+File.separator+rootName+"_"+chsName[channelIndex[0]]+"_t"+(t+1)+".TIF";
+                                            if (pml.multiPos)
+                                                imageName = inDir+File.separator+rootName+"_"+chsName[channelIndex[0]]+"_s1_t"+(t+1)+".TIF";
+                                            imgNuc = IJ.openImage(imageName);    
                                         }
                                        imgNuc.setCalibration(cal);          
                                        Objects3DPopulation nucPop = pml.stardistNucleiPop(imgNuc);
@@ -340,7 +342,10 @@ public class PML_StarDist_Parallel2 implements PlugIn {
                                             imgPML = BF.openImagePlus(newopt)[0];
                                             } catch (Exception e) { Logger.getLogger(PML_LiveCells.class.getName()).log(Level.SEVERE, null, e);}
                                         } else {
-                                            imgPML = IJ.openImage(inDir+"/"+rootName+"_"+chsName[channelIndex[1]]+pml.stage+"_t"+(t+1)+".TIF");
+                                            String imageName = inDir+File.separator+rootName+"_"+chsName[channelIndex[1]]+"_t"+(t+1)+".TIF";
+                                            if (pml.multiPos)
+                                                imageName = inDir+File.separator+rootName+"_"+chsName[channelIndex[1]]+"_s1_t"+(t+1)+".TIF";
+                                            imgPML = IJ.openImage(imageName);
                                         }
                                         imgPML.setCalibration(cal);
 

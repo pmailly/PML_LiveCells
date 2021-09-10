@@ -151,8 +151,10 @@ public class PML_StarDist implements PlugIn {
                            //Open nucleus channel
                             imgNuc = BF.openImagePlus(options)[0];
                         } else {
-                            // faster ??
-                            imgNuc = IJ.openImage(inDir+"/"+rootName+"_"+chsName[channelIndex[0]]+pml.stage+"_t"+(t+1)+".TIF");    
+                            String imageName = inDir+File.separator+rootName+"_"+chsName[channelIndex[0]]+"_t"+(t+1)+".TIF";
+                            if (pml.multiPos)
+                                imageName = inDir+File.separator+rootName+"_"+chsName[channelIndex[0]]+"_s1_t"+(t+1)+".TIF";
+                            imgNuc = IJ.openImage(imageName);    
                         }
                        imgNuc.setCalibration(cal);          
                        if (pml.saveWhole){
@@ -228,7 +230,7 @@ public class PML_StarDist implements PlugIn {
                             ImagePlus[] pmlImgs = null;
                             if (pml.savePMLImg) pmlImgs = new ImagePlus[nuctime];
                             for (int t = 0; t < nuctime; t++) { 
-                                 if (pml.verbose) IJ.log("Working on nuclei "+nucIndex+" time "+pml.stage+t+"∕"+nuctime);
+                                 if (pml.verbose) IJ.log("Working on nuclei "+nucIndex+" time "+t+"∕"+nuctime);
 
                                  ImagePlus imgPML;
                                   // Open pml channel
@@ -239,7 +241,10 @@ public class PML_StarDist implements PlugIn {
                                     options.setTEnd(0, t);
                                     imgPML = BF.openImagePlus(options)[0];
                                    } else {
-                                        imgPML = IJ.openImage(inDir+"/"+rootName+"_"+chsName[channelIndex[1]]+"_t"+(t+1)+".TIF");
+                                        String imageName = inDir+File.separator+rootName+"_"+chsName[channelIndex[1]]+"_t"+(t+1)+".TIF";
+                                        if (pml.multiPos)
+                                            imageName = inDir+File.separator+rootName+"_"+chsName[channelIndex[1]]+"_s1_t"+(t+1)+".TIF";
+                                        imgPML = IJ.openImage(imageName);
                                     }
                                     imgPML.setCalibration(cal);
 

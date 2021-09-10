@@ -116,7 +116,7 @@ public class PML_Tools {
     public static Object transSyncObject = new Object();
     private File tmpModelFile = null;
     protected URL modelUrl = PML_Tools.class.getClassLoader().getResource("models/dsb2018_heavy_augment.zip");
-    public String stage = "";
+    public boolean multiPos = false;
         
     
     public void copyModelFileStarDist(){
@@ -398,7 +398,6 @@ public class PML_Tools {
             gd.addChoice(chNames[index]+" : ", channels, channels[index]);
             index++;
         }
-        gd.addStringField("Stage position (write s1 if in the filenames)", "");
         gd.addMessage("PML parameters", Font.getFont("Monospace"), Color.blue);
         gd.addNumericField("Min PML size (µm3) : ", minPML, 3);
         gd.addNumericField("Max PML size (µm3) : ", maxPML, 3);
@@ -414,6 +413,7 @@ public class PML_Tools {
         gd.addNumericField("Calibration xy (µm)  :", cal.pixelWidth, 3);
         if ( cal.pixelDepth == 1) cal.pixelDepth = 0.5;
         gd.addNumericField("Calibration z (µm)  :", cal.pixelDepth, 3);
+        gd.addCheckbox("Multi position", multiPos);
         gd.addMessage("Output options", Font.getFont("Monospace"), Color.blue);
         gd.addCheckbox("Save all nucleus stack", saveWhole);
          gd.addCheckbox("Save pml stack", savePMLImg);
@@ -425,8 +425,7 @@ public class PML_Tools {
         for (int n = 0; n < chChoices.length; n++) {
             chChoices[n] = ArrayUtils.indexOf(channels, gd.getNextChoice());
         }
-        stage = gd.getNextString();
-        if (!stage.equals("")) stage = "_"+stage;
+
         minPML = gd.getNextNumber();
         maxPML = gd.getNextNumber();
         thMet = gd.getNextChoice();
@@ -438,6 +437,7 @@ public class PML_Tools {
         cal.pixelWidth = gd.getNextNumber();
         cal.pixelHeight = cal.pixelWidth;
         cal.pixelDepth = gd.getNextNumber();
+        multiPos = gd.getNextBoolean();
         saveWhole = gd.getNextBoolean();
         savePMLImg = gd.getNextBoolean();
         //saveDiffus = gd.getNextBoolean();

@@ -171,8 +171,10 @@ public class PML_StarDist_Parallel implements PlugIn {
                                         //Open nucleus channel
                                         imgNuc = BF.openImagePlus(newopt)[0];
                                     } else {
-                                        // faster ??
-                                        imgNuc = IJ.openImage(inDir+"/"+rootName+"_"+chsName[channelIndex[0]]+pml.stage+"_t"+(t+1)+".TIF");    
+                                        String imageName = inDir+File.separator+rootName+"_"+chsName[channelIndex[0]]+"_t"+(t+1)+".TIF";
+                                        if (pml.multiPos)
+                                            imageName = inDir+File.separator+rootName+"_"+chsName[channelIndex[0]]+"_s1_t"+(t+1)+".TIF";
+                                        imgNuc = IJ.openImage(imageName);    
                                     }
                                    imgNuc.setCalibration(cal);          
                                   
@@ -337,7 +339,10 @@ public class PML_StarDist_Parallel implements PlugIn {
                         newopt.setTEnd(0, t);
                         imgPML = BF.openImagePlus(newopt)[0];
                     } else {
-                           imgPML = IJ.openImage(inDir+"/"+rootName+"_"+chsName[channelIndex[1]]+pml.stage+"_t"+(t+1)+".TIF");
+                        String imageName = inDir+File.separator+rootName+"_"+chsName[channelIndex[1]]+"_t"+(t+1)+".TIF";
+                        if (pml.multiPos)
+                            imageName = inDir+File.separator+rootName+"_"+chsName[channelIndex[1]]+"_s1_t"+(t+1)+".TIF";
+                        imgPML = IJ.openImage(imageName);
                      }
                     imgPML.setCalibration(cal);
 
