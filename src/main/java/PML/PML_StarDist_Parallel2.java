@@ -142,7 +142,7 @@ public class PML_StarDist_Parallel2 implements PlugIn {
                 }
                 
                 final int time = reader.getSizeT();
-                //final int time = 6;
+                //final int time = 4;
                 if (pml.verbose) IJ.log("\\Clear");
                 int nz = reader.getSizeZ();
                 
@@ -261,7 +261,7 @@ public class PML_StarDist_Parallel2 implements PlugIn {
                 if (pop[i]==null) return nucl;
                 Object3D closest = (pop[i]).closestCenter(obj.getCenterAsPoint());
                 // threshold distance to loose the nuclei (not aligned image so can move)
-                if (obj.distCenterUnit(closest) > 4) {
+                if (obj.distCenterUnit(closest) > 3.75) {
                     return nucl;
                 }
                 // within distance, continue
@@ -295,9 +295,10 @@ public class PML_StarDist_Parallel2 implements PlugIn {
                  pml.translateToRoi(nuc, roilim);
                  roilim = null;
 
-                ArrayList<Objects3DPopulation> pmlPopList = new ArrayList<>();
                 int nuctime = nuc.getNbObjects();
-                 if (pml.verbose) IJ.log("Working on nuclei "+nucIndex+" timefinal "+nuctime);
+                Objects3DPopulation[] pmlPopList = new Objects3DPopulation[nuctime];
+                
+                if (pml.verbose) IJ.log("Working on nuclei "+nucIndex+" timefinal "+nuctime);
                 
                   ImagePlus[] dotBins = new ImagePlus[nuctime];  
                 
@@ -308,6 +309,7 @@ public class PML_StarDist_Parallel2 implements PlugIn {
                     ImagePlus unalignednucleus = pml.drawNucleusStack(nuc, croproi, nuctime, nz);
                     // Get transformations to do to align stack
                     ArrayList<Transformer> trans = new StackReg_Plus().stackRegister(pml.stackProj(unalignednucleus), nucIndex);
+                    
                     ImagePlus alignednucleus = pml.alignStack(trans, unalignednucleus, true, nucIndex);
                     pml.closeImages(unalignednucleus);
                     pml.alignPop(alignednucleus, nuc);
@@ -370,7 +372,8 @@ public class PML_StarDist_Parallel2 implements PlugIn {
 
                                         // draw current time point
                                         dotBins[t] = pml.drawOneNucleiWithPMLOneTime(pmlPop, anucleus); 
-                                        synchronized(syncpoplist){pmlPopList.add(pmlPop);}
+                                        //synchronized(syncpoplist){pmlPopList.add(pmlPop);}
+                                        pmlPopList[t] = pmlPop;
                                         if (t>0) { 
                                            synchronized(pml.transSyncObject) { (trans.get(t-1)).doTransformation(imgPML, false, nucIndex); }
                                         }
@@ -411,6 +414,7 @@ public class PML_StarDist_Parallel2 implements PlugIn {
                    }
                    //System.gc();
                    ImagePlus dotBin = new Concatenator().concatenate(dotBins, false);
+                   dotBin.setCalibration(pml.getCalib());
                     FileSaver nucPML = new FileSaver(dotBin);
                     nucPML.saveAsTiff(outDirResults+rootName+"_NucleusPMLs-"+nucIndex+".tif");
                   
@@ -421,7 +425,7 @@ public class PML_StarDist_Parallel2 implements PlugIn {
 
                     if (pml.verbose) IJ.log("Track PMLs for nuclei "+nucIndex);
                     // empty pmlPopList
-                    boolean success = track.trackmateObjects(dotBin, pmlPopList, outDirResults, rootName+"_NucleusPMLs-"+nucIndex+".tif", pml.radius, 1.0, pml.merging_dist);
+                    boolean success = track.trackmateObjects(dotBin, pmlPopList, outDirResults, rootName+"_NucleusPMLs-"+nucIndex+".tif", pml.radius, pml.track_dist, pml.merging_dist); 
                     if (success) track.saveResults(resName+"_trackmateSaved.xml", resName+"_trackmateExport.xml", resName+"_trackmateSpotsStats.csv", resName+"_trackmateTrackStats.csv", outDirResults, rootName+"_PMLs-"+nucIndex+".tif");           
                     if (pml.verbose) IJ.log("Tracking PMLs for nuclei "+nucIndex+" finished: "+success);
                     pml.closeImages(dotBin);

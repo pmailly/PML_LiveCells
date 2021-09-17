@@ -208,7 +208,7 @@ public class PML_StarDist implements PlugIn {
                              // move nucleus coordinates to ROI coordinates
                              pml.translateToRoi(nuc, roilim);
 
-                            ArrayList<Objects3DPopulation> pmlPopList = new ArrayList<>();
+                            Objects3DPopulation[] pmlPopList = new Objects3DPopulation[nuctime];
                             ImagePlus[] dotBins = new ImagePlus[nuctime];    
 
                             // Draw nucleus hyperstack (z, time)
@@ -268,7 +268,7 @@ public class PML_StarDist implements PlugIn {
 
                                      // draw current time point
                                      dotBins[t] = pml.drawOneNucleiWithPMLOneTime(pmlPop, anucleus); 
-                                    pmlPopList.add(pmlPop);
+                                    pmlPopList[t] = pmlPop;
                                     if (t>0) (trans.get(t-1)).doTransformation(imgPML, false, nucIndex);
 
                                     int pmlNbDots = pmlPop.getNbObjects();
@@ -298,7 +298,7 @@ public class PML_StarDist implements PlugIn {
                             String resName = outDirResults+rootName+"nuc_"+nucIndex;
 
                             if (pml.verbose) IJ.log("Track PMLs for nuclei "+nucIndex);               
-                            boolean success = track.trackmateObjects(dotBin, pmlPopList, outDirResults, rootName+"_NucleusPMLs-"+nucIndex+".tif", pml.radius, 1.0, pml.merging_dist);
+                            boolean success = track.trackmateObjects(dotBin, pmlPopList, outDirResults, rootName+"_NucleusPMLs-"+nucIndex+".tif", pml.radius, pml.track_dist, pml.merging_dist);
                             if (success) track.saveResults(resName+"_trackmateSaved.xml", resName+"_trackmateExport.xml", resName+"_trackmateSpotsStats.csv", resName+"_trackmateTrackStats.csv", outDirResults, rootName+"_PMLs-"+nucIndex+".tif");           
 
                             if ( pml.saveWhole){

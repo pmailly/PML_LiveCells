@@ -77,9 +77,9 @@ public class PML_Tools {
     private double maxNuc = 6000; // 5000
     
     // min volume in pixels^3 for dots
-    private double minPML = 0.02;
+    private double minPML = 0.05; // rad=0.25
     // max volume in pixels^3 for dots
-    private double maxPML = 60;
+    private double maxPML = 70; // rad=2.5
     private Calibration cal = new Calibration(); 
     
     public boolean verbose = false;
@@ -95,7 +95,8 @@ public class PML_Tools {
     // Trackmate dialog parameters
     public double radius = 0.75;
     public double threshold = 35;
-    public double merging_dist = 0.8;
+    public double merging_dist = 0.75;
+    public double track_dist = 1.5;
     
     public String trackMate_Detector_Method = "StarDist";
     
@@ -156,12 +157,12 @@ public class PML_Tools {
             IJ.log("3D ImageJ Suite not installed, please install from update site");
             return false;
         }
-        try {
+        /**try {
             loader.loadClass("uk.ac.sussex.gdsc.utils.DifferenceOfGaussians_PlugIn");
         } catch (ClassNotFoundException e) {
             IJ.log("GDSC Suite not installed, please install from update site");
             return false;
-        }
+        }*/
         try {
             loader.loadClass("TurboReg_");
         } catch (ClassNotFoundException e) {
@@ -408,6 +409,8 @@ public class PML_Tools {
         gd.addChoice("Dots detector method :", TrackMate_Detector, TrackMate_Detector[2]);
         gd.addNumericField("Merging / spliting max distance : ", merging_dist,3);
         gd.addNumericField("PML dots radius (µm) :", radius, 3);
+        gd.addNumericField("Tracking max distance : ", track_dist,3);
+        
         gd.addNumericField("PML threshold        :", threshold, 3);
         gd.addMessage("Image calibration", Font.getFont("Monospace"), Color.blue);
         gd.addNumericField("Calibration xy (µm)  :", cal.pixelWidth, 3);
@@ -433,6 +436,7 @@ public class PML_Tools {
         trackMate_Detector_Method = gd.getNextChoice();
         merging_dist = gd.getNextNumber();
         radius = gd.getNextNumber();
+        track_dist = gd.getNextNumber();
         threshold = gd.getNextNumber();
         cal.pixelWidth = gd.getNextNumber();
         cal.pixelHeight = cal.pixelWidth;
@@ -562,7 +566,9 @@ public class PML_Tools {
      */
     public ImagePlus stackProj(ImagePlus img) {
        ZProjector proj = new ZProjector(img);
-       ImagePlus imgProj = proj.run(img, "max all");
+       //img.show();
+       //new WaitForUserDialog("test").show();
+       ImagePlus imgProj = proj.run(img, "avg all");
        return(imgProj); 
     }
     
@@ -681,8 +687,10 @@ public class PML_Tools {
         clearSlicesWithoutNuclei(imgDots, nuc);
         double sig1 = radius;
         double sig2 = radius/3;
-        IJ.run(imgDots,"Difference of Gaussians", "  sigma1="+sig1+" sigma2="+sig2+" scaled stack");
-        clearSlicesWithoutNuclei(imgDots, nuc);
+        DoG dog = new DoG();
+        dog.stackDOG(imgDots, sig1, sig2);
+        //IJ.run(imgDots,"Difference of Gaussians", "  sigma1="+sig1+" sigma2="+sig2+" scaled stack");
+        //clearSlicesWithoutNuclei(imgDots, nuc);
          // Do alignement
         if (trans != null) {
             if (sync){
@@ -712,7 +720,7 @@ public class PML_Tools {
         {
             Object3D obj = pmlPop.getObject(i);
             // no colocalisation: all pixels are black
-            if ( obj.getPixMeanValue(ImageHandler.wrap(nuc)) < 1 )
+            if ( obj.getPixMeanValue(ImageHandler.wrap(nuc)) < 5 )
             {
                 pmlPop.removeObject(i);
                 i--;
@@ -950,6 +958,36 @@ public class PML_Tools {
             closeImages(resized);
         }
      }
+    public void drawNucleusPML(Objects3DPopulation pop, Objects3DPopulation[] pmlPopList, ImagePlus[] imArray, boolean label, int nnuc, double factor) {
+        // Draw at each time
+        for (int i=0; i<pop.getNbObjects(); i++)
+        {
+            ImagePlus resized = imArray[i].resize((int)(imArray[i].getWidth()/factor), (int)(imArray[i].getHeight()/factor), "none");
+            ImageHandler imhObjects = ImageHandler.wrap(resized);
+            //System.out.println(nnuc+" "+i+" "+pop.getObject(i).getCenterUnit());
+            pop.getObject(i).draw(imhObjects, 125);
+            if ( i < pmlPopList.length){
+                Objects3DPopulation pmlpop = pmlPopList[i];
+                pmlpop.draw(imhObjects, 255);
+            }
+            if ( label ){
+                Object3D ob = pop.getObject(i);
+                //double meanrad = Math.pow(ob.getVolumePixels()*3.0/(4.0*Math.PI), 1.0/3.0); // add mean radius to be outside object to write label
+                double meanrad = 0; // write in the center
+                int z = (int) ob.getCenterZ();
+                int x = (int) (ob.getCenterX() + meanrad*1.3);
+                int y = (int) (ob.getCenterY() + meanrad*1.3);
+                resized.setSlice(z);
+                ImageProcessor proc = resized.getProcessor();
+                proc.setColor(255);
+                proc.setFontSize(30);
+                proc.drawString(""+nnuc, x, y);
+                resized.updateAndDraw();
+            }
+            imArray[i] = resized.resize(imArray[i].getWidth(), imArray[i].getHeight(), "none");
+            closeImages(resized);
+        }
+     }
     
     
      public ImagePlus drawPMLs(ArrayList<Objects3DPopulation> pmlPopList, ImagePlus[] imgArray) {
@@ -1119,7 +1157,7 @@ public class PML_Tools {
      /**
      * Save image objects
      */
-    public void drawOnWholeImage(ArrayList<Objects3DPopulation> pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, Roi roi, int index, double factor) {
+    public void drawOnWholeImage(Objects3DPopulation[] pmlPopList, Objects3DPopulation nucPop, ImagePlus[] imgArray, Roi roi, int index, double factor) {
         translateRoiBack(nucPop, roi);
         // draw and align PMLs
         translateRoiBack(pmlPopList, roi);
@@ -1516,6 +1554,16 @@ public class PML_Tools {
      public void translateRoiBack( ArrayList<Objects3DPopulation> array, Roi roi) {
         for (int i=0; i<array.size(); i++){
             Objects3DPopulation pop = array.get(i);
+            for (int k=0; k<pop.getNbObjects(); k++) {
+                Object3D obj = pop.getObject(k);        
+                obj.translate(roi.getBounds().getMinX(), roi.getBounds().getMinY(), 0);
+            }
+        }
+    }
+     
+      public void translateRoiBack( Objects3DPopulation[] array, Roi roi) {
+        for (int i=0; i<array.length; i++){
+            Objects3DPopulation pop = array[i];
             for (int k=0; k<pop.getNbObjects(); k++) {
                 Object3D obj = pop.getObject(k);        
                 obj.translate(roi.getBounds().getMinX(), roi.getBounds().getMinY(), 0);

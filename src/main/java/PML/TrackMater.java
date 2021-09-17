@@ -12,13 +12,14 @@ import fiji.plugin.trackmate.TrackMate;
 import fiji.plugin.trackmate.Settings;
 import fiji.plugin.trackmate.Spot;
 import fiji.plugin.trackmate.SpotCollection;
-import fiji.plugin.trackmate.TrackMatePlugIn_;
+import fiji.plugin.trackmate.TrackMatePlugIn;
 import fiji.plugin.trackmate.detection.DogDetectorFactory;
 import fiji.plugin.trackmate.detection.LogDetectorFactory;
 import fiji.plugin.trackmate.detection.ManualDetectorFactory;
 import fiji.plugin.trackmate.features.edges.EdgeAnalyzer;
 import fiji.plugin.trackmate.features.spot.SpotAnalyzerFactory;
 import fiji.plugin.trackmate.features.track.TrackAnalyzer;
+import fiji.plugin.trackmate.gui.displaysettings.DisplaySettings;
 import fiji.plugin.trackmate.io.TmXmlWriter;
 import fiji.plugin.trackmate.providers.EdgeAnalyzerProvider;
 import fiji.plugin.trackmate.providers.SpotAnalyzerProvider;
@@ -29,6 +30,7 @@ import fiji.plugin.trackmate.util.TMUtils;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.measure.ResultsTable;
+import java.awt.Frame;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -44,11 +46,14 @@ import mcib3d.geom.Vector3D;
 
 
 
-public class TrackMater extends TrackMatePlugIn_ {
+public class TrackMater extends TrackMatePlugIn {
     
     private Logger logger = new LogRecorder( Logger.DEFAULT_LOGGER );
     private String welcomeMessage;
     private int nSpots = 0;
+    private Settings settings;
+    private Model model;
+    private TrackMate trackmate; 
     
     public void run(ImagePlus imp, String path, String imgname, double radius, double threshold, String detect, double link, double merging_dist, boolean subpixel, boolean median)
     {
@@ -57,10 +62,10 @@ public class TrackMater extends TrackMatePlugIn_ {
         settings = createSettings( imp );
         settings.imageFileName = imgname;
         settings.imageFolder = path;
-	model = createModel();
+	model = createModel(imp);
         
 	model.setLogger( logger );
-	trackmate = createTrackMate();
+	trackmate = createTrackMate(model, settings);
     
        // Configure default settings.
         // Default detector.
@@ -100,7 +105,7 @@ public class TrackMater extends TrackMatePlugIn_ {
         }
     }
     
-    public boolean trackmateObjects(ImagePlus imp, ArrayList<Objects3DPopulation> pmlPopList, String path, String imgname, double radius, double link, double merging_dist)
+    public boolean trackmateObjects(ImagePlus imp, Objects3DPopulation[] pmlPopList, String path, String imgname, double radius, double link, double merging_dist)
     {
        //Initialisation TrackMate.
         logger = new LogRecorder( Logger.VOID_LOGGER );
@@ -135,7 +140,7 @@ public class TrackMater extends TrackMatePlugIn_ {
 
 	logger.log( "Computing features.\n" );
 	 // Run trackMate with the settings
-        trackmate = createTrackMate();
+        trackmate = createTrackMate(model, settings);
         if ( !runTracking()  ) { 
             IJ.error( "Error while performing tracking:\n" + trackmate.getErrorMessage() );
             return false;
@@ -144,7 +149,7 @@ public class TrackMater extends TrackMatePlugIn_ {
     }
     
     public boolean runTracking(){
-        if ( !trackmate.computeSpotFeatures( true ) ) { return false; }
+        //if ( !trackmate.computeSpotFeatures( true ) ) { return false; }
         if ( !trackmate.execSpotFiltering( true ) ) { return false; }
         if ( !trackmate.execTracking() ) { return false; }
         if ( !trackmate.computeTrackFeatures( true ) ) { return false; }
@@ -177,7 +182,7 @@ public class TrackMater extends TrackMatePlugIn_ {
         logger.log( "Added the following features to be computed:\n" + settings.toStringFeatureAnalyzersInfo() );
     }*/
     
-    public void getModel(ArrayList<Objects3DPopulation> pmlPopList, final double frameInterval, final String spaceUnit, final String timeUnit )
+    public void getModel(Objects3DPopulation[] pmlPopList, final double frameInterval, final String spaceUnit, final String timeUnit )
     {
 		Map< Integer, Set< Spot > > spots = new HashMap<>();
 		Map< Integer, List< Spot > > tracks = new HashMap<>();
@@ -186,16 +191,13 @@ public class TrackMater extends TrackMatePlugIn_ {
 		logger.log( String.format( "Parsing records.\n" ) );
 		nSpots = 0;
                 double q = 1.;
-                int t = 0;
-                int sizepop = pmlPopList.size();
+                int sizepop = pmlPopList.length;
                 // Read each time point population
-                while (!pmlPopList.isEmpty())
-		//for ( Objects3DPopulation pop: pmlPopList )
+                
+		for ( int t=0; t<sizepop; t++ )
 		{
-                    Objects3DPopulation pop = pmlPopList.get(0);
-                    pmlPopList.remove(0);
+                    Objects3DPopulation pop = pmlPopList[t];
                     logger.setProgress( ( double ) nSpots / sizepop );
-
                     // list of objects at time t
                     Set< Spot > list = new HashSet<>();
                     spots.put( Integer.valueOf( t ), list );
@@ -203,15 +205,14 @@ public class TrackMater extends TrackMatePlugIn_ {
                     for ( int i=0; i < pop.getNbObjects(); i++ ) {
                         nSpots++;
                         Object3D obj = pop.getObject(i);
-                        double r = Math.pow(4.0/3.0/Math.PI*obj.getVolumeUnit(), 0.33);	
+                        double r = Math.pow(3.0/(4.0*Math.PI)*obj.getVolumeUnit(), 0.33);	
                         Vector3D cent = obj.getCenterUnit();
                         Spot spot = new Spot( cent.x, cent.y, cent.z, r, q, null );
                         spot.putFeature( Spot.FRAME, ( double ) t );
                         spot.putFeature( Spot.POSITION_T, frameInterval * t );
                         list.add( spot );
                     }
-                    t++;
-                    pop = null;
+                    pmlPopList[t] = null;
                 }	
 		
 		logger.log( String.format( "Parsing done. Loaded %d objects.\n", nSpots ) );
@@ -256,8 +257,10 @@ public class TrackMater extends TrackMatePlugIn_ {
 
        // Export statistics file ?        
         final SelectionModel selectionModel = new SelectionModel( model );
-        ExportStats stat = new ExportStats(selectionModel);
-        stat.execute(trackmate);
+        ExportStats stat = new ExportStats();
+        DisplaySettings ds = new DisplaySettings();
+        Frame parent = new Frame();
+        stat.execute(trackmate, selectionModel, ds, parent);
         ResultsTable statTable = stat.getSpotTable();
         statTable.save(statfile);
         
@@ -286,7 +289,7 @@ public class TrackMater extends TrackMatePlugIn_ {
 		final Settings s = super.createSettings( imp );
 
 		s.clearSpotAnalyzerFactories();
-		final SpotAnalyzerProvider spotAnalyzerProvider = new SpotAnalyzerProvider();
+		final SpotAnalyzerProvider spotAnalyzerProvider = new SpotAnalyzerProvider(1);
 		final List< String > spotAnalyzerKeys = spotAnalyzerProvider.getKeys();
 		for ( final String key : spotAnalyzerKeys )
 		{

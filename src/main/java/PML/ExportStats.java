@@ -5,42 +5,37 @@
  */
 package PML;
 
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import javax.swing.ImageIcon;
-
 import org.jgrapht.graph.DefaultWeightedEdge;
-
 import fiji.plugin.trackmate.FeatureModel;
-import fiji.plugin.trackmate.Model;
-import fiji.plugin.trackmate.SelectionModel;
 import fiji.plugin.trackmate.Spot;
-import fiji.plugin.trackmate.TrackMate;
 import fiji.plugin.trackmate.action.AbstractTMAction;
 import fiji.plugin.trackmate.action.TrackMateAction;
 import fiji.plugin.trackmate.action.TrackMateActionFactory;
-import fiji.plugin.trackmate.features.edges.EdgeTargetAnalyzer;
 import fiji.plugin.trackmate.features.edges.EdgeTimeLocationAnalyzer;
-import fiji.plugin.trackmate.gui.TrackMateGUIController;
-import fiji.plugin.trackmate.gui.TrackMateWizard;
 import fiji.plugin.trackmate.util.ModelTools;
-import ij.WindowManager;
 import ij.measure.ResultsTable;
-import ij.text.TextPanel;
-import ij.text.TextWindow;
+
+import javax.swing.ImageIcon;
+
+
+import fiji.plugin.trackmate.Model;
+import fiji.plugin.trackmate.SelectionModel;
+import fiji.plugin.trackmate.TrackMate;
+import fiji.plugin.trackmate.gui.displaysettings.DisplaySettings;
+import java.awt.Frame;
+
 
 public class ExportStats extends AbstractTMAction
 {
 
-	public static final ImageIcon ICON = new ImageIcon( TrackMateWizard.class.getResource( "images/calculator.png" ) );
+	public static final ImageIcon ICON = new ImageIcon();
 
 	public static final String NAME = "Export statistics to tables";
 
@@ -77,13 +72,11 @@ public class ExportStats extends AbstractTMAction
 
 	private final SelectionModel selectionModel;
 
-	public ExportStats( final SelectionModel selectionModel )
-	{
-		this.selectionModel = selectionModel;
-	}
+        public ExportStats(){this.selectionModel = null;}
 
-	@Override
-	public void execute( final TrackMate trackmate )
+	
+        @Override
+	public void execute( final TrackMate trackmate, final SelectionModel selectionModel, final DisplaySettings displaySettings, final Frame parent  )
 	{
 		logger.log( "Exporting statistics.\n" );
 
@@ -294,9 +287,9 @@ public class ExportStats extends AbstractTMAction
 		}
 
 		@Override
-		public TrackMateAction create( final TrackMateGUIController controller )
+		public TrackMateAction create()
 		{
-			return new ExportStats( controller.getSelectionModel() );
+			return new ExportStats();
 		}
 
 		@Override

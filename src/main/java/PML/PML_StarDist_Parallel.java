@@ -297,8 +297,9 @@ public class PML_StarDist_Parallel implements PlugIn {
                  // move nucleus coordinates to ROI coordinates
                  pml.translateToRoi(nuc, roilim);
 
-                ArrayList<Objects3DPopulation> pmlPopList = new ArrayList<>();
-                int nuctime = nuc.getNbObjects();
+                    int nuctime = nuc.getNbObjects();
+                Objects3DPopulation[] pmlPopList = new Objects3DPopulation[nuctime];
+            
                  if (pml.verbose) IJ.log("Working on nuclei "+nucIndex+" timefinal "+nuctime);
                 ImagePlus[] dotBins = new ImagePlus[nuctime];  
                 
@@ -366,7 +367,7 @@ public class PML_StarDist_Parallel implements PlugIn {
 
                      // draw current time point
                      dotBins[t] = pml.drawOneNucleiWithPMLOneTime(pmlPop, anucleus); 
-                    pmlPopList.add(pmlPop);
+                    pmlPopList[t] = pmlPop;
                     if (t>0) (trans.get(t-1)).doTransformation(imgPML, false, nucIndex);
 
                     int pmlNbDots = pmlPop.getNbObjects();
