@@ -15,6 +15,7 @@ import org.scijava.command.CommandModule;
 
 import ij.IJ;
 import ij.ImagePlus;
+import ij.gui.WaitForUserDialog;
 import ij.plugin.Concatenator;
 import java.util.List;
 import mcib3d.geom.Object3D;
@@ -275,7 +276,7 @@ public class StarDist2D extends StarDist2DBase implements Command {
         return ImageJFunctions.wrap((RandomAccessibleInterval)img1, "Labelled");
     }
     
-    public ImagePlus associateLabels() {
+    public ImagePlus associateLabels(double distMax) {
         ImagePlus labImg = getLabelImagePlus();
         // put the image back in slices
         if ( labImg.getNChannels()>1) labImg.setDimensions(1, labImg.getNChannels(), 1);
@@ -287,7 +288,7 @@ public class StarDist2D extends StarDist2DBase implements Command {
         IJ.run(labImg, "Select None", ""); 
         for (int i=1; i<labImg.getNSlices(); i++) {
              ImagePlus inext = labImg.crop((i+1)+"-"+(i+1));
-             associated[i] = associate(inext, associated[i-1]);
+             associated[i] = associate(inext, associated[i-1], distMax);
              inext.flush();
              inext.close();
         }
@@ -301,15 +302,15 @@ public class StarDist2D extends StarDist2DBase implements Command {
     }
     
     /** Associate the label of frame t-1 with slice z */
-    public ImagePlus associate(ImagePlus ip, ImagePlus ref) {
-        
+    public ImagePlus associate(ImagePlus ip, ImagePlus ref, double distMax) {
+      
         ImageHandler img1 = ImageInt.wrap(ref);
         ImageHandler img2 = ImageInt.wrap(ip);
         
         Objects3DPopulation population1 = new Objects3DPopulation(img1);
         Objects3DPopulation population2 = new Objects3DPopulation(img2);
         
-        Association association = new Association(population1, population2, new CostColocalisation(population1, population2,10));
+        Association association = new Association(population1, population2, new CostColocalisation(population1, population2, distMax));
         association.verbose = false;
         association.computeAssociation();
         // final associations

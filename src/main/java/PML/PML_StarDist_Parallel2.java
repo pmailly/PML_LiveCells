@@ -8,10 +8,8 @@ package PML;
  */
 
 
-import com.esotericsoftware.minlog.Log;
 import ij.*;
 import ij.gui.Roi;
-import ij.gui.WaitForUserDialog;
 import ij.io.FileSaver;
 import ij.io.LogStream;
 import ij.plugin.PlugIn;
@@ -29,26 +27,18 @@ import mcib3d.geom.Object3D;
 import ij.measure.Calibration;
 import ij.plugin.Concatenator;
 import ij.plugin.SubHyperstackMaker;
-import ij.plugin.frame.RoiManager;
-import java.awt.Rectangle;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import loci.common.Region;
 import loci.common.services.DependencyException;
 import loci.common.services.ServiceException;
 import loci.formats.FormatException;
 import loci.plugins.BF;
 import loci.plugins.in.ImporterOptions;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import mcib3d.utils.ThreadUtil;
-import org.scijava.ui.swing.console.ConsolePanel;
-import org.scijava.ui.swing.console.SwingConsolePane;
 
 public class PML_StarDist_Parallel2 implements PlugIn {
 
@@ -261,7 +251,8 @@ public class PML_StarDist_Parallel2 implements PlugIn {
                 if (pop[i]==null) return nucl;
                 Object3D closest = (pop[i]).closestCenter(obj.getCenterAsPoint());
                 // threshold distance to loose the nuclei (not aligned image so can move)
-                if (obj.distCenterUnit(closest) > 3.75) {
+                if (obj.distCenterUnit(closest) > pml.tracknucdist) {
+                    //System.out.println("max "+obj.distCenterUnit(closest));
                     return nucl;
                 }
                 // within distance, continue

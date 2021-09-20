@@ -71,6 +71,8 @@ import java.util.logging.Logger;
  */
 public class PML_Tools {
    
+    // distance to consider same nuclei
+    protected double tracknucdist = 4.0;
     // min nucleus volume in mic^3
     private double minNuc = 250; //500
     // max nucleus volume in micron^3
@@ -82,9 +84,9 @@ public class PML_Tools {
     private double maxPML = 70; // rad=2.5
     private Calibration cal = new Calibration(); 
     
-    public boolean verbose = false;
-    public boolean saveWhole = false;
-    public boolean savePMLImg = true;
+    protected boolean verbose = false;
+    protected boolean saveWhole = false;
+    protected boolean savePMLImg = true;
     //public boolean saveDiffus = false;
 
     // dots threshold method
@@ -93,10 +95,10 @@ public class PML_Tools {
     private float dilate = 0.5f;
     
     // Trackmate dialog parameters
-    public double radius = 0.75;
-    public double threshold = 35;
-    public double merging_dist = 0.75;
-    public double track_dist = 1.5;
+    protected double radius = 0.75;
+    protected double threshold = 35;
+    protected double merging_dist = 0.75;
+    protected double track_dist = 1.75;
     
     public String trackMate_Detector_Method = "StarDist";
     
@@ -117,7 +119,7 @@ public class PML_Tools {
     public static Object transSyncObject = new Object();
     private File tmpModelFile = null;
     protected URL modelUrl = PML_Tools.class.getClassLoader().getResource("models/dsb2018_heavy_augment.zip");
-    public boolean multiPos = false;
+    public boolean multiPos = true;
         
     
     public void copyModelFileStarDist(){
@@ -710,7 +712,7 @@ public class PML_Tools {
         closeImages(imgDots);
         
         // label in 3D
-        ImagePlus pmls = star.associateLabels();
+        ImagePlus pmls = star.associateLabels(1.25);
         pmls.setCalibration(cal);
         Objects3DPopulation pop = new Objects3DPopulation(pmls);;
         closeImages(pmls);
@@ -1326,23 +1328,48 @@ public class PML_Tools {
             IJ.run(bin, "Convert to Mask", "method=Default background=Dark stack");
         }
        
-        int found = 0;
-       for ( int i=1; i <= imp.getNSlices(); i++ )
-       {
+       boolean found = false;
+       // search first slices
+       int i = 2;
+       while (i<imp.getNSlices() & (!found)) {
             bin.setSlice(i);
             stat = bin.getStatistics();
           
             // don't contain signal
             if (stat.mean < 10)
             {
-                imp.setSlice(i);
-                IJ.run(imp, "Select All", "");
-		IJ.setBackgroundColor(0, 0, 0);
-		IJ.run(imp, "Clear", "slice");
-                IJ.run(imp, "Select None", "");
+                clearSlice(imp, i);
+                if (i == 2 ){ clearSlice(imp, 1); }
             }
-        }
+            else {found = true; }
+            i++;
+       }
+        // search last slices
+       i = imp.getNSlices()-1;
+       found = false;
+       while (i>1 & (!found)) {
+            bin.setSlice(i);
+            stat = bin.getStatistics();
+          
+            // don't contain signal
+            if (stat.mean < 10)
+            {
+                clearSlice(imp, i);
+                if (i == imp.getNSlices()-1 ){ clearSlice(imp, imp.getNSlices()); }
+            }
+            else {found = true; }
+            i--;
+       }
+       
     }
+        
+        public void clearSlice(ImagePlus ip, int slice) {
+                ip.setSlice(slice);
+                IJ.run(ip, "Select All", "");
+		IJ.setBackgroundColor(0, 0, 0);
+		IJ.run(ip, "Clear", "slice");
+                IJ.run(ip, "Select None", "");
+        }
         
         public void clearSlicesWithoutNuclei(ImagePlus imp, ImagePlus nucleus) {
         // get rid of extreme slices without nuclei
@@ -1434,8 +1461,9 @@ public class PML_Tools {
         star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistOutput);
         star.run();
         closeImages(resized);
+        
         // label in 3D
-        ImagePlus nuclei = star.associateLabels();
+        ImagePlus nuclei = star.associateLabels(3.0);
         ImagePlus newnuc = nuclei.resize(width, height, 1, "none");
         newnuc.setCalibration(cal);
         //show(nuclei);
@@ -1512,7 +1540,7 @@ public class PML_Tools {
         for (int i=0; i<pop.size(); i++) {
             Object3D closest = (pop.get(i)).closestCenter(obj.getCenterAsPoint());
             // threshold distance to loose the nuclei (not aligned image so can move)
-            if (obj.distCenterUnit(closest) > 4) {
+            if (obj.distCenterUnit(closest) > tracknucdist) {
                 return nucl;
             }
             // within distance, continue
