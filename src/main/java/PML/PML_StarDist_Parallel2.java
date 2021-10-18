@@ -388,8 +388,8 @@ public class PML_StarDist_Parallel2 implements PlugIn {
                     // Write headers results for results file{
                     FileWriter fileResults = new FileWriter(outDirResults + rootName + "_Nucleus_" + nucIndex +"_results.xls", false);
                     BufferedWriter outPutResults = new BufferedWriter(fileResults);
-                    outPutResults.write("Time\tNucleus Volume\tPML dot number\tPML Mean dots IntDensity\tPML dots Mean Volume"
-                            + "\tPML dots STD IntDensity\tPML dot STD Volume\tPML Sum Vol\n");
+                    outPutResults.write("Time\tNucleus Volume\tPML dot number\tPML Mean dots IntDensity"
+                            + "\tPML dots STD IntDensity\tPML dots Mean Volume\tPML dot STD Volume\tPML Sum Vol\n");
                     for (int t=0; t<nuctime; t++)
                         outPutResults.write(res[t]);
                     outPutResults.flush();

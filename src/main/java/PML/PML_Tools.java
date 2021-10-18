@@ -687,10 +687,11 @@ public class PML_Tools {
         ImagePlus imgDots = new Duplicator().run(img);
         // clear slices where there is no nucleus 
         clearSlicesWithoutNuclei(imgDots, nuc);
-        double sig1 = radius;
-        double sig2 = radius/3;
-        DoG dog = new DoG();
-        dog.stackDOG(imgDots, sig1, sig2);
+        //double sig1 = radius;
+        //double sig2 = radius/3;
+        //DoG dog = new DoG();
+        //dog.stackDOG(imgDots, sig1, sig2);
+        
         //IJ.run(imgDots,"Difference of Gaussians", "  sigma1="+sig1+" sigma2="+sig2+" scaled stack");
         //clearSlicesWithoutNuclei(imgDots, nuc);
          // Do alignement
