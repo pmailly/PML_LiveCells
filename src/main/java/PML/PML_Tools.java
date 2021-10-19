@@ -103,10 +103,10 @@ public class PML_Tools {
     public String trackMate_Detector_Method = "StarDist";
     
     public double stardistPercentileBottom = 2.0;
-    public double stardistPercentileTop = 99.0;
+    public double stardistPercentileTop = 99.8;
     public double stardistProbThresh = 0.55;
     public double stardistOverlayThresh = 0.35;
-    public double stardistProbThreshPML = 0.7;
+    public double stardistProbThreshPML = 0.31;
     public double stardistOverlayThreshPML = 0.7;
     public String stardistModel = "dsb2018_heavy_augment.zip";
     public String stardistOutput = "Label Image";
