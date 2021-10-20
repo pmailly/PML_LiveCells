@@ -106,7 +106,7 @@ public class PML_Tools {
     public double stardistPercentileTop = 99.8;
     public double stardistProbThresh = 0.55;
     public double stardistOverlayThresh = 0.35;
-    public double stardistProbThreshPML = 0.31;
+    public double stardistProbThreshPML = 0.35;
     public double stardistOverlayThreshPML = 0.7;
     public String stardistModel = "dsb2018_heavy_augment.zip";
     public String stardistOutput = "Label Image";
