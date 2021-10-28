@@ -49,14 +49,18 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.ArrayUtils;
 
 import StardistPML.StarDist2D;
+import com.sun.jna.platform.win32.Winsvc;
 import ij.plugin.RoiEnlarger;
 import ij.plugin.RoiScaler;
 import ij.plugin.frame.RoiManager;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import mcib3d.geom.Voxel3D;
 
         
  /*
@@ -682,6 +686,22 @@ public class PML_Tools {
         return(pmlPop);
     } 
       
+       /*
+    Find voxel inside bounding box
+    xmin, xmax, ymin, ymax, zmin, zmax
+    */ 
+   private List<Voxel3D> getVoxelInsideBoundingBox(Object3D obj, int[] boundingBox) {
+       List<Voxel3D> list = new ArrayList<Voxel3D>();
+       for (Voxel3D v : obj.getVoxels()) {
+           if (v.isInsideBoundingBox(boundingBox))
+               list.add(v);
+       }
+       //System.out.println("box = "+boundingBox);
+       //List<Voxel3D> list = voxels.stream().filter(voxel3D -> voxel3D.isInsideBoundingBox(boundingBox)).collect(Collectors.toList());
+       return list;
+   }
+   
+      
        /** Find dots with StarDist LoG method, on aligned images */
       public Objects3DPopulation findDotsStarDist(ImagePlus img, ImagePlus nuc, Transformer trans, int id, boolean sync) {
         ImagePlus imgDots = new Duplicator().run(img);
@@ -707,30 +727,81 @@ public class PML_Tools {
         
         // Go StarDist
         StarDist2D star = new StarDist2D(syncObject, tmpModelFile);
+        //IJ.run(imgDots, "Minimum 3D...", "x=0 y=0 z=1");
         star.loadInput(imgDots);
         star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThreshPML, stardistOverlayThreshPML, stardistOutput);
         star.run();
+        int nt = imgDots.getNFrames();
         closeImages(imgDots);
         
         // label in 3D
-        ImagePlus pmls = star.associateLabels(1.25);
+        ImagePlus pmls = star.associateLabels(1.2);
         pmls.setCalibration(cal);
-        Objects3DPopulation pop = new Objects3DPopulation(pmls);;
+        Objects3DPopulation pop = new Objects3DPopulation(ImageHandler.wrap(pmls));
         closeImages(pmls);
        
         Objects3DPopulation pmlPop = new Objects3DPopulation(pop.getObjectsWithinVolume(minPML, maxPML, true));
-        for ( int i = 0; i < pmlPop.getNbObjects(); i++)
-        {
+         Objects3DPopulation newPmlPop = new Objects3DPopulation();
+        for ( int i = 0; i < pmlPop.getNbObjects(); i++){
             Object3D obj = pmlPop.getObject(i);
             // no colocalisation: all pixels are black
-            if ( obj.getPixMeanValue(ImageHandler.wrap(nuc)) < 5 )
-            {
-                pmlPop.removeObject(i);
-                i--;
-            }
-            
+            if ( obj.getPixMeanValue(ImageHandler.wrap(nuc)) >= 5 ){
+            // remove top and bottom voxels due to over detection with Stardist
+            // only for object having more than 3 Z plans
+                int zplan = obj.getZmax() - obj.getZmin();
+                if (zplan >= 3) {
+                    int[] bBox = obj.getBoundingBox();
+                    int zmean = (bBox[5]-bBox[4])/2 + bBox[4];
+                    
+                    int[] meanBbox = {bBox[0], bBox[1], bBox[2], bBox[3], zmean, zmean};
+                    List<Voxel3D> voxels = getVoxelInsideBoundingBox(obj, meanBbox);
+                    Object3DVoxels meanSlice = new Object3DVoxels(voxels);
+                    double mrad = Math.pow(meanSlice.getAreaPixels()/Math.PI,0.5)*1.2;
+                    
+                    // min z bigger
+                    int zmin = obj.getZmin();
+                    int[] newBbox = {bBox[0], bBox[1], bBox[2], bBox[3], zmin, zmin};
+                    Object3DVoxels newObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, newBbox));
+                    double rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);
+                    while ((rad>mrad) & (zmin<bBox[5])) 
+                    {
+                        zmin++;
+                        int[] newBboxMin = {bBox[0], bBox[1], bBox[2], bBox[3], zmin, bBox[5]};
+                        newBbox[4] = zmin;
+                        newBbox[5] = zmin;
+                        List<Voxel3D> voxelsslice = getVoxelInsideBoundingBox(obj, newBbox);
+                        newObj = new Object3DVoxels(voxelsslice);
+                        rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);                        
+                    }
+                    
+                    // max z bigger
+                    int zmax = obj.getZmax();
+                    newBbox[4] = zmax;
+                    newBbox[5] = zmax;
+                    newObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, newBbox));
+                    rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);
+                    while ((rad>mrad)&(zmax>zmin)){
+                        zmax--;
+                        newBbox[4] = zmax;
+                        newBbox[5] = zmax;
+                        newObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, newBbox));
+                        rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);                        
+                    }
+                    
+                    int[] finalBbox = {bBox[0], bBox[1], bBox[2], bBox[3], zmin, zmax};
+                    Object3DVoxels finalObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, finalBbox));
+                    
+                   obj = null;
+                   newObj = null;
+                   newPmlPop.addObject(finalObj);
+                }
+                else 
+                {
+                 if ( (obj.getZmax() < nt) & (zplan>1) & (obj.getZmin()>1) ) newPmlPop.addObject(obj);
+                }
         }
-       return(pmlPop);
+        }
+        return(newPmlPop);
        } 
     
     
