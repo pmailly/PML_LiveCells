@@ -49,7 +49,6 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.ArrayUtils;
 
 import StardistPML.StarDist2D;
-import com.sun.jna.platform.win32.Winsvc;
 import ij.plugin.RoiEnlarger;
 import ij.plugin.RoiScaler;
 import ij.plugin.frame.RoiManager;
@@ -59,7 +58,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 import mcib3d.geom.Voxel3D;
 
         
@@ -89,18 +87,10 @@ public class PML_Tools {
     private Calibration cal = new Calibration(); 
     
     protected boolean verbose = false;
-    protected boolean saveWhole = false;
     protected boolean savePMLImg = true;
-    //public boolean saveDiffus = false;
-
-    // dots threshold method
-    private String thMet = "Otsu";
-    // pml dot dilatation factor for diffuse mask
-    private float dilate = 0.5f;
     
     // Trackmate dialog parameters
     protected double radius = 0.75;
-    protected double threshold = 35;
     protected double merging_dist = 0.75;
     protected double track_dist = 1.75;
     
@@ -112,7 +102,8 @@ public class PML_Tools {
     public double stardistOverlayThresh = 0.35;
     public double stardistProbThreshPML = 0.35;
     public double stardistOverlayThreshPML = 0.7;
-    public String stardistModel = "dsb2018_heavy_augment.zip";
+    private final String stardistModelNucleus = PML_Tools.class.getClassLoader().getResource("models/dsb2018_heavy_augment.zip").toString();
+    public String stardistModelPML = "";
     public String stardistOutput = "Label Image";
     
     public CLIJ2 clij2 = CLIJ2.getInstance();
@@ -121,28 +112,8 @@ public class PML_Tools {
     
     public static Object syncObject = new Object();
     public static Object transSyncObject = new Object();
-    private File tmpModelFile = null;
-    protected URL modelUrl = PML_Tools.class.getClassLoader().getResource("models/dsb2018_heavy_augment.zip");
     public boolean multiPos = true;
-        
-    
-    public void copyModelFileStarDist(){
-        try {
-             tmpModelFile = File.createTempFile("stardist_model_", ".zip"); 
-             Files.copy(modelUrl.openStream(), tmpModelFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException ex) {
-            Logger.getLogger(PML_Tools.class.getName()).log(Level.SEVERE, null, ex);
-        }
-    } 
-    
-    public void deleteTmpModelFileStarDist(){
-         try {
-                if (tmpModelFile != null && tmpModelFile.exists())
-                    tmpModelFile.delete();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-    }
+
     
      /**
      * check  installed modules
@@ -393,8 +364,6 @@ public class PML_Tools {
      * @return 
      */
     public int[] dialog(String[] channels) {
-        String[] thMethods = new Thresholder().methods;
-        String[] TrackMate_Detector = {"DoG", "LoG", "StarDist"};
         String[] chNames = {"Nucleus", "PML"};
         GenericDialogPlus gd = new GenericDialogPlus("Parameters");
         gd.setInsets​(0, 80, 0);
@@ -405,57 +374,37 @@ public class PML_Tools {
             gd.addChoice(chNames[index]+" : ", channels, channels[index]);
             index++;
         }
+        gd.addMessage("Stardist model files", Font.getFont("Monospace"), Color.blue);
+        gd.addFileField("Stardist model for PML :", stardistModelPML);
         gd.addMessage("PML parameters", Font.getFont("Monospace"), Color.blue);
         gd.addNumericField("Min PML size (µm3) : ", minPML, 3);
         gd.addNumericField("Max PML size (µm3) : ", maxPML, 3);
-        gd.addMessage("Diffuse analyze", Font.getFont("Monospace"), Color.blue);
-        gd.addChoice("Dots threshold method : ", thMethods, thMet);
-        gd.addNumericField("PML dilatation factor (µm) :", dilate, 3);
         gd.addMessage("Trackmate parameters", Font.getFont("Monospace"), Color.blue);
-        gd.addChoice("Dots detector method :", TrackMate_Detector, TrackMate_Detector[2]);
         gd.addNumericField("Merging / spliting max distance : ", merging_dist,3);
         gd.addNumericField("PML dots radius (µm) :", radius, 3);
         gd.addNumericField("Tracking max distance : ", track_dist,3);
-        
-        gd.addNumericField("PML threshold        :", threshold, 3);
         gd.addMessage("Image calibration", Font.getFont("Monospace"), Color.blue);
         gd.addNumericField("Calibration xy (µm)  :", cal.pixelWidth, 3);
         if ( cal.pixelDepth == 1) cal.pixelDepth = 0.5;
         gd.addNumericField("Calibration z (µm)  :", cal.pixelDepth, 3);
         gd.addCheckbox("Multi position", multiPos);
         gd.addMessage("Output options", Font.getFont("Monospace"), Color.blue);
-        gd.addCheckbox("Save all nucleus stack", saveWhole);
-         gd.addCheckbox("Save pml stack", savePMLImg);
-        //gd.addCheckbox("Save diffus", saveDiffus);
-        
-        gd.addCheckbox("verbose", verbose);
         gd.showDialog();
         int[] chChoices = new int[channels.length];
         for (int n = 0; n < chChoices.length; n++) {
             chChoices[n] = ArrayUtils.indexOf(channels, gd.getNextChoice());
         }
-
+        stardistModelPML = gd.getNextString();
         minPML = gd.getNextNumber();
         maxPML = gd.getNextNumber();
-        thMet = gd.getNextChoice();
-        dilate = (float)gd.getNextNumber();
-        trackMate_Detector_Method = gd.getNextChoice();
         merging_dist = gd.getNextNumber();
         radius = gd.getNextNumber();
         track_dist = gd.getNextNumber();
-        threshold = gd.getNextNumber();
         cal.pixelWidth = gd.getNextNumber();
         cal.pixelHeight = cal.pixelWidth;
         cal.pixelDepth = gd.getNextNumber();
         multiPos = gd.getNextBoolean();
-        saveWhole = gd.getNextBoolean();
         savePMLImg = gd.getNextBoolean();
-        //saveDiffus = gd.getNextBoolean();
-        verbose = gd.getNextBoolean();
-        
-        // initialize stardist model
-         if (trackMate_Detector_Method.equals("StarDist")) copyModelFileStarDist();
-        
         if (gd.wasCanceled())
                 chChoices = null;
         return(chChoices);
@@ -578,113 +527,113 @@ public class PML_Tools {
        return(imgProj); 
     }
     
-    /** 
-     * Find dots with LoG
-     * @param img channel
-     * @param nucObj
-     * @return dots population
-     */
-    public Objects3DPopulation findDotsLoG(ImagePlus img, Object3D nucObj) {
-        ImagePlus imgLaplacien = new Duplicator().run(img); 
-        double sigma = radius/(3*img.getCalibration().pixelWidth);
-        IJ.run(imgLaplacien, "Laplacian of Gaussian", "sigma="+sigma+" negate stack");
-        imgLaplacien.setSlice(imgLaplacien.getNSlices()/2);
-        IJ.setAutoThreshold(imgLaplacien, thMet+" dark");
-        Prefs.blackBackground = false;
-        IJ.run(imgLaplacien, "Convert to Mask", "method="+thMet+" background=Default");
-        
-        Objects3DPopulation pmlPop = new Objects3DPopulation(getPopFromImage(imgLaplacien).getObjectsWithinVolume(minPML, maxPML, true));
-        for ( int i = 0; i < pmlPop.getNbObjects(); i++)
-        {
-            Object3D obj = pmlPop.getObject(i);
-            if ( !obj.hasOneVoxelColoc(nucObj) )
-            {
-                pmlPop.removeObject(i);
-                i--;
-            }
-            
-        }
-        closeImages(imgLaplacien);
-      
-        return(pmlPop);
-    } 
+//    /** 
+//     * Find dots with LoG
+//     * @param img channel
+//     * @param nucObj
+//     * @return dots population
+//     */
+//    public Objects3DPopulation findDotsLoG(ImagePlus img, Object3D nucObj) {
+//        ImagePlus imgLaplacien = new Duplicator().run(img); 
+//        double sigma = radius/(3*img.getCalibration().pixelWidth);
+//        IJ.run(imgLaplacien, "Laplacian of Gaussian", "sigma="+sigma+" negate stack");
+//        imgLaplacien.setSlice(imgLaplacien.getNSlices()/2);
+//        IJ.setAutoThreshold(imgLaplacien, thMet+" dark");
+//        Prefs.blackBackground = false;
+//        IJ.run(imgLaplacien, "Convert to Mask", "method="+thMet+" background=Default");
+//        
+//        Objects3DPopulation pmlPop = new Objects3DPopulation(getPopFromImage(imgLaplacien).getObjectsWithinVolume(minPML, maxPML, true));
+//        for ( int i = 0; i < pmlPop.getNbObjects(); i++)
+//        {
+//            Object3D obj = pmlPop.getObject(i);
+//            if ( !obj.hasOneVoxelColoc(nucObj) )
+//            {
+//                pmlPop.removeObject(i);
+//                i--;
+//            }
+//            
+//        }
+//        closeImages(imgLaplacien);
+//      
+//        return(pmlPop);
+//    } 
     
-    /** 
-     * Find dots with DOG method
-     * @param img channel
-     * @return dots population
-     */
-    public Objects3DPopulation findDotsDoG(ImagePlus img, Object3D nucObj) {
-        ImagePlus imgDOG = new Duplicator().run(img);
-        double sig1 = radius;
-        double sig2 = radius/3;
-        IJ.run(imgDOG,"Difference of Gaussians", "  sigma1="+sig1+" sigma2="+sig2+" scaled stack");
-        imgDOG.setSlice(imgDOG.getNSlices()/2);
-        IJ.setAutoThreshold(imgDOG, thMet+" dark");
-        Prefs.blackBackground = false;
-        IJ.run(imgDOG, "Convert to Mask", "method="+thMet+" background=Default");
-
-        Objects3DPopulation pmlPop = new Objects3DPopulation(getPopFromImage(imgDOG).getObjectsWithinVolume(minPML, maxPML, true));
-        for ( int i = 0; i < pmlPop.getNbObjects(); i++)
-        {
-            Object3D obj = pmlPop.getObject(i);
-            if ( !obj.hasOneVoxelColoc(nucObj) )
-            {
-                pmlPop.removeObject(i);
-                i--;
-            }
-            
-        }
-        closeImages(imgDOG);
-      
-        return(pmlPop);
-    }
+//    /** 
+//     * Find dots with DOG method
+//     * @param img channel
+//     * @return dots population
+//     */
+//    public Objects3DPopulation findDotsDoG(ImagePlus img, Object3D nucObj) {
+//        ImagePlus imgDOG = new Duplicator().run(img);
+//        double sig1 = radius;
+//        double sig2 = radius/3;
+//        IJ.run(imgDOG,"Difference of Gaussians", "  sigma1="+sig1+" sigma2="+sig2+" scaled stack");
+//        imgDOG.setSlice(imgDOG.getNSlices()/2);
+//        IJ.setAutoThreshold(imgDOG, thMet+" dark");
+//        Prefs.blackBackground = false;
+//        IJ.run(imgDOG, "Convert to Mask", "method="+thMet+" background=Default");
+//
+//        Objects3DPopulation pmlPop = new Objects3DPopulation(getPopFromImage(imgDOG).getObjectsWithinVolume(minPML, maxPML, true));
+//        for ( int i = 0; i < pmlPop.getNbObjects(); i++)
+//        {
+//            Object3D obj = pmlPop.getObject(i);
+//            if ( !obj.hasOneVoxelColoc(nucObj) )
+//            {
+//                pmlPop.removeObject(i);
+//                i--;
+//            }
+//            
+//        }
+//        closeImages(imgDOG);
+//      
+//        return(pmlPop);
+//    }
     
-    /** Find dots with DoG or LoG method, on aligned images */
-      public Objects3DPopulation findDotsAlign(ImagePlus img, ImagePlus nuc, Transformer trans, int dog, int id) {
-        ImagePlus imgDots = new Duplicator().run(img);
-        //DoG
-        if (dog==1){
-            double sig1 = radius;
-            double sig2 = radius/3;
-            IJ.run(imgDots,"Difference of Gaussians", "  sigma1="+sig1+" sigma2="+sig2+" scaled stack");
-        }
-        // LoG
-        else {
-            double sigma = radius/(3*img.getCalibration().pixelWidth);
-            IJ.run(imgDots, "Laplacian of Gaussian", "sigma="+sigma+" negate stack");
-        }
-        imgDots.setSlice(imgDots.getNSlices()/2);
-        IJ.setAutoThreshold(imgDots, thMet+" dark");
-        Prefs.blackBackground = false;
-        IJ.run(imgDots, "Convert to Mask", "method="+thMet+" background=Default");
-        
-        
-        // Do alignement
-        if (trans != null) {
-             trans.doTransformation(imgDots, false, 0);
-             // rebinarize
-              IJ.setAutoThreshold(imgDots, "Default dark stack");
-              Prefs.blackBackground = false;
-              IJ.run(imgDots, "Convert to Mask", "method=Default background=Dark stack");
-        }
-
-        Objects3DPopulation pmlPop = new Objects3DPopulation(getPopFromImage(imgDots).getObjectsWithinVolume(minPML, maxPML, true));
-        for ( int i = 0; i < pmlPop.getNbObjects(); i++)
-        {
-            Object3D obj = pmlPop.getObject(i);
-            // no colocalisation: all pixels are black
-            if ( obj.getPixMeanValue(ImageHandler.wrap(nuc)) < 1 )
-            {
-                pmlPop.removeObject(i);
-                i--;
-            }
-            
-        }
-        closeImages(imgDots);
-      
-        return(pmlPop);
-    } 
+//    /** Find dots with DoG or LoG method, on aligned images */
+//      public Objects3DPopulation findDotsAlign(ImagePlus img, ImagePlus nuc, Transformer trans, int dog, int id) {
+//        ImagePlus imgDots = new Duplicator().run(img);
+//        //DoG
+//        if (dog==1){
+//            double sig1 = radius;
+//            double sig2 = radius/3;
+//            IJ.run(imgDots,"Difference of Gaussians", "  sigma1="+sig1+" sigma2="+sig2+" scaled stack");
+//        }
+//        // LoG
+//        else {
+//            double sigma = radius/(3*img.getCalibration().pixelWidth);
+//            IJ.run(imgDots, "Laplacian of Gaussian", "sigma="+sigma+" negate stack");
+//        }
+//        imgDots.setSlice(imgDots.getNSlices()/2);
+//        IJ.setAutoThreshold(imgDots, thMet+" dark");
+//        Prefs.blackBackground = false;
+//        IJ.run(imgDots, "Convert to Mask", "method="+thMet+" background=Default");
+//        
+//        
+//        // Do alignement
+//        if (trans != null) {
+//             trans.doTransformation(imgDots, false, 0);
+//             // rebinarize
+//              IJ.setAutoThreshold(imgDots, "Default dark stack");
+//              Prefs.blackBackground = false;
+//              IJ.run(imgDots, "Convert to Mask", "method=Default background=Dark stack");
+//        }
+//
+//        Objects3DPopulation pmlPop = new Objects3DPopulation(getPopFromImage(imgDots).getObjectsWithinVolume(minPML, maxPML, true));
+//        for ( int i = 0; i < pmlPop.getNbObjects(); i++)
+//        {
+//            Object3D obj = pmlPop.getObject(i);
+//            // no colocalisation: all pixels are black
+//            if ( obj.getPixMeanValue(ImageHandler.wrap(nuc)) < 1 )
+//            {
+//                pmlPop.removeObject(i);
+//                i--;
+//            }
+//            
+//        }
+//        closeImages(imgDots);
+//      
+//        return(pmlPop);
+//    } 
       
        /*
     Find voxel inside bounding box
@@ -726,7 +675,8 @@ public class PML_Tools {
         }
         
         // Go StarDist
-        StarDist2D star = new StarDist2D(syncObject, tmpModelFile);
+        File starDistModelFile = new File(stardistModelPML);
+        StarDist2D star = new StarDist2D(syncObject, starDistModelFile);
         //IJ.run(imgDots, "Minimum 3D...", "x=0 y=0 z=1");
         star.loadInput(imgDots);
         star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThreshPML, stardistOverlayThreshPML, stardistOutput);
@@ -741,102 +691,103 @@ public class PML_Tools {
         closeImages(pmls);
        
         Objects3DPopulation pmlPop = new Objects3DPopulation(pop.getObjectsWithinVolume(minPML, maxPML, true));
-         Objects3DPopulation newPmlPop = new Objects3DPopulation();
-        for ( int i = 0; i < pmlPop.getNbObjects(); i++){
-            Object3D obj = pmlPop.getObject(i);
-            // no colocalisation: all pixels are black
-            if ( obj.getPixMeanValue(ImageHandler.wrap(nuc)) >= 5 ){
-            // remove top and bottom voxels due to over detection with Stardist
-            // only for object having more than 3 Z plans
-                int zplan = obj.getZmax() - obj.getZmin();
-                if (zplan >= 3) {
-                    int[] bBox = obj.getBoundingBox();
-                    int zmean = (bBox[5]-bBox[4])/2 + bBox[4];
-                    
-                    int[] meanBbox = {bBox[0], bBox[1], bBox[2], bBox[3], zmean, zmean};
-                    List<Voxel3D> voxels = getVoxelInsideBoundingBox(obj, meanBbox);
-                    Object3DVoxels meanSlice = new Object3DVoxels(voxels);
-                    double mrad = Math.pow(meanSlice.getAreaPixels()/Math.PI,0.5)*1.2;
-                    
-                    // min z bigger
-                    int zmin = obj.getZmin();
-                    int[] newBbox = {bBox[0], bBox[1], bBox[2], bBox[3], zmin, zmin};
-                    Object3DVoxels newObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, newBbox));
-                    double rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);
-                    while ((rad>mrad) & (zmin<bBox[5])) 
-                    {
-                        zmin++;
-                        int[] newBboxMin = {bBox[0], bBox[1], bBox[2], bBox[3], zmin, bBox[5]};
-                        newBbox[4] = zmin;
-                        newBbox[5] = zmin;
-                        List<Voxel3D> voxelsslice = getVoxelInsideBoundingBox(obj, newBbox);
-                        newObj = new Object3DVoxels(voxelsslice);
-                        rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);                        
-                    }
-                    
-                    // max z bigger
-                    int zmax = obj.getZmax();
-                    newBbox[4] = zmax;
-                    newBbox[5] = zmax;
-                    newObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, newBbox));
-                    rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);
-                    while ((rad>mrad)&(zmax>zmin)){
-                        zmax--;
-                        newBbox[4] = zmax;
-                        newBbox[5] = zmax;
-                        newObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, newBbox));
-                        rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);                        
-                    }
-                    
-                    int[] finalBbox = {bBox[0], bBox[1], bBox[2], bBox[3], zmin, zmax};
-                    Object3DVoxels finalObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, finalBbox));
-                    
-                   obj = null;
-                   newObj = null;
-                   newPmlPop.addObject(finalObj);
-                }
-                else 
-                {
-                 if ( (obj.getZmax() < nt) & (zplan>1) & (obj.getZmin()>1) ) newPmlPop.addObject(obj);
-                }
-        }
-        }
-        return(newPmlPop);
-       } 
+//        Objects3DPopulation newPmlPop = new Objects3DPopulation();
+//        for ( int i = 0; i < pmlPop.getNbObjects(); i++){
+//            Object3D obj = pmlPop.getObject(i);
+//            // no colocalisation: all pixels are black
+//            if ( obj.getPixMeanValue(ImageHandler.wrap(nuc)) >= 5 ){
+//            // remove top and bottom voxels due to over detection with Stardist
+//            // only for object having more than 3 Z plans
+//                int zplan = obj.getZmax() - obj.getZmin();
+//                if (zplan >= 3) {
+//                    int[] bBox = obj.getBoundingBox();
+//                    int zmean = (bBox[5]-bBox[4])/2 + bBox[4];
+//                    
+//                    int[] meanBbox = {bBox[0], bBox[1], bBox[2], bBox[3], zmean, zmean};
+//                    List<Voxel3D> voxels = getVoxelInsideBoundingBox(obj, meanBbox);
+//                    Object3DVoxels meanSlice = new Object3DVoxels(voxels);
+//                    double mrad = Math.pow(meanSlice.getAreaPixels()/Math.PI,0.5)*1.2;
+//                    
+//                    // min z bigger
+//                    int zmin = obj.getZmin();
+//                    int[] newBbox = {bBox[0], bBox[1], bBox[2], bBox[3], zmin, zmin};
+//                    Object3DVoxels newObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, newBbox));
+//                    double rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);
+//                    while ((rad>mrad) & (zmin<bBox[5])) 
+//                    {
+//                        zmin++;
+//                        int[] newBboxMin = {bBox[0], bBox[1], bBox[2], bBox[3], zmin, bBox[5]};
+//                        newBbox[4] = zmin;
+//                        newBbox[5] = zmin;
+//                        List<Voxel3D> voxelsslice = getVoxelInsideBoundingBox(obj, newBbox);
+//                        newObj = new Object3DVoxels(voxelsslice);
+//                        rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);                        
+//                    }
+//                    
+//                    // max z bigger
+//                    int zmax = obj.getZmax();
+//                    newBbox[4] = zmax;
+//                    newBbox[5] = zmax;
+//                    newObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, newBbox));
+//                    rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);
+//                    while ((rad>mrad)&(zmax>zmin)){
+//                        zmax--;
+//                        newBbox[4] = zmax;
+//                        newBbox[5] = zmax;
+//                        newObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, newBbox));
+//                        rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);                        
+//                    }
+//                    
+//                    int[] finalBbox = {bBox[0], bBox[1], bBox[2], bBox[3], zmin, zmax};
+//                    Object3DVoxels finalObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, finalBbox));
+//                    
+//                   obj = null;
+//                   newObj = null;
+//                   newPmlPop.addObject(finalObj);
+//                }
+//                else 
+//                {
+//                 if ( (obj.getZmax() < nt) & (zplan>1) & (obj.getZmin()>1) ) newPmlPop.addObject(obj);
+//                }
+//        }
+//    }
+return(pmlPop);
+    //return(newPmlPop);
+} 
     
     
-    /** 
-     * Find dots with DOG CLIJ Method
-     * @param img channel
-     * @return dots population
-     */
-    public Objects3DPopulation findDotsDoGCLIJ(ImagePlus img, Object3D nucObj) {
-        ClearCLBuffer imgCL = clij2.push(img);
-        double sig1 = radius/(3*img.getCalibration().pixelWidth);
-        double sig2 = radius/img.getCalibration().pixelWidth;
-        ClearCLBuffer imgCLDOG = DOG(imgCL, sig1, sig2);
-        clij2.release(imgCL);
-        ImagePlus imgBin = clij2.pull(threshold(imgCLDOG, thMet, false));
-        clij2.release(imgCLDOG);
-        imgBin.setCalibration(img.getCalibration());
-        //imgBin.show();
-        //new WaitForUserDialog("test").show();
-        Objects3DPopulation pmlPop = new Objects3DPopulation(getPopFromImage(imgBin).getObjectsWithinVolume(minPML, maxPML, true));
-        for ( int i = 0; i < pmlPop.getNbObjects(); i++)
-        {
-            Object3D obj = pmlPop.getObject(i);
-            if ( !obj.hasOneVoxelColoc(nucObj) )
-            {
-                pmlPop.removeObject(i);
-                i--;
-            }
-            
-        }
-        closeImages(imgBin);
-      
-        return(pmlPop);
-    } 
-    
+//    /** 
+//     * Find dots with DOG CLIJ Method
+//     * @param img channel
+//     * @return dots population
+//     */
+//    public Objects3DPopulation findDotsDoGCLIJ(ImagePlus img, Object3D nucObj) {
+//        ClearCLBuffer imgCL = clij2.push(img);
+//        double sig1 = radius/(3*img.getCalibration().pixelWidth);
+//        double sig2 = radius/img.getCalibration().pixelWidth;
+//        ClearCLBuffer imgCLDOG = DOG(imgCL, sig1, sig2);
+//        clij2.release(imgCL);
+//        ImagePlus imgBin = clij2.pull(threshold(imgCLDOG, thMet, false));
+//        clij2.release(imgCLDOG);
+//        imgBin.setCalibration(img.getCalibration());
+//        //imgBin.show();
+//        //new WaitForUserDialog("test").show();
+//        Objects3DPopulation pmlPop = new Objects3DPopulation(getPopFromImage(imgBin).getObjectsWithinVolume(minPML, maxPML, true));
+//        for ( int i = 0; i < pmlPop.getNbObjects(); i++)
+//        {
+//            Object3D obj = pmlPop.getObject(i);
+//            if ( !obj.hasOneVoxelColoc(nucObj) )
+//            {
+//                pmlPop.removeObject(i);
+//                i--;
+//            }
+//            
+//        }
+//        closeImages(imgBin);
+//      
+//        return(pmlPop);
+//    } 
+//    
     
     public Objects3DPopulation getPopFromImage(ImagePlus img, Calibration cal) {
         // label binary images first
@@ -939,34 +890,34 @@ public class PML_Tools {
     
  
 
-    /**
-     * Create diffuse PML image
-     * Fill zero in pml dots
-     * @param pmlPopList
-     * @param imgArray
-     * @param pathName
-
-     */
-    public void saveDiffusImage(ArrayList<Objects3DPopulation> pmlPopList, ImagePlus[] imgArray, String pathName) {
-        ImagePlus[] hyperDifuse = new ImagePlus[imgArray.length];
-        for (int i = 0; i < imgArray.length; i++) {
-           ImageHandler imh = ImageHandler.wrap(imgArray[i]);
-           Objects3DPopulation pmlPop = pmlPopList.get(i);
-           for (int j = 0; j < pmlPop.getNbObjects(); j++) {
-               Object3D pmlObj = pmlPop.getObject(j);
-               // dilate 
-                Object3DVoxels pmlDilatedObj = pmlObj.getDilatedObject(dilate, dilate, dilate);
-                pmlDilatedObj.draw(imh, 0);          
-            }
-           hyperDifuse[i] = imh.getImagePlus(); 
-        }
-        ImagePlus hyperDifuseTime = new Concatenator().concatenate(hyperDifuse, false);
-        // Save diffus
-        FileSaver imgDiffus = new FileSaver(hyperDifuseTime);
-        imgDiffus.saveAsTiff(pathName);
-        closeImages(hyperDifuseTime);
-    }
-    
+//    /**
+//     * Create diffuse PML image
+//     * Fill zero in pml dots
+//     * @param pmlPopList
+//     * @param imgArray
+//     * @param pathName
+//
+//     */
+//    public void saveDiffusImage(ArrayList<Objects3DPopulation> pmlPopList, ImagePlus[] imgArray, String pathName) {
+//        ImagePlus[] hyperDifuse = new ImagePlus[imgArray.length];
+//        for (int i = 0; i < imgArray.length; i++) {
+//           ImageHandler imh = ImageHandler.wrap(imgArray[i]);
+//           Objects3DPopulation pmlPop = pmlPopList.get(i);
+//           for (int j = 0; j < pmlPop.getNbObjects(); j++) {
+//               Object3D pmlObj = pmlPop.getObject(j);
+//               // dilate 
+//                Object3DVoxels pmlDilatedObj = pmlObj.getDilatedObject(dilate, dilate, dilate);
+//                pmlDilatedObj.draw(imh, 0);          
+//            }
+//           hyperDifuse[i] = imh.getImagePlus(); 
+//        }
+//        ImagePlus hyperDifuseTime = new Concatenator().concatenate(hyperDifuse, false);
+//        // Save diffus
+//        FileSaver imgDiffus = new FileSaver(hyperDifuseTime);
+//        imgDiffus.saveAsTiff(pathName);
+//        closeImages(hyperDifuseTime);
+//    }
+//    
      
      
     public ImagePlus drawNucleus(Objects3DPopulation pop, ImagePlus[] imArray, boolean label, int nnuc) {
@@ -1471,9 +1422,12 @@ public class PML_Tools {
     public ImagePlus stardistNuclei(ImagePlus imgNuc){
         double factor = 300.0/imgNuc.getWidth();
         ImagePlus resized = imgNuc.resize((int)(imgNuc.getWidth()*factor), (int)(imgNuc.getHeight()*factor), "bilinear");
+        // initialize stardist model
         StarDist2D star;
+
         //synchronized(syncObject){ 
-            star = new StarDist2D(syncObject, tmpModelFile);
+        File starDistModelFile = new File(stardistModelNucleus);
+        star = new StarDist2D(syncObject, starDistModelFile);
         //}
         star.loadInput(resized);
         star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistOutput);
@@ -1528,7 +1482,9 @@ public class PML_Tools {
         // clear slices on which there is no signal before to stardist it (to do: add in stardist a test if image is empty ?)
         clearSlicesWithoutSignal(resized);
         // Go StarDist
-        StarDist2D star = new StarDist2D(syncObject, tmpModelFile);
+        // initialize stardist model
+        File starDistModelFile = new File(stardistModelNucleus);
+        StarDist2D star = new StarDist2D(syncObject, starDistModelFile);
         star.loadInput(resized);
         star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistOutput);
         star.run();
@@ -1559,7 +1515,8 @@ public class PML_Tools {
         ImagePlus resized = imgNuc.resize((int)(imgNuc.getWidth()*factor), (int)(imgNuc.getHeight()*factor), "bilinear");
            StarDist2D star;
         //synchronized(syncObject){ 
-            star = new StarDist2D(syncObject, tmpModelFile);
+        File starDistModelFile = new File(stardistModelNucleus);
+        star = new StarDist2D(syncObject, starDistModelFile);
         //}
         star.loadInput(resized);
         star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistOutput);

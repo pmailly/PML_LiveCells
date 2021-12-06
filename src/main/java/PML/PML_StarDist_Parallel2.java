@@ -182,7 +182,7 @@ public class PML_StarDist_Parallel2 implements PlugIn {
                                        if (pml.verbose) IJ.log("Found "+nucPop.getNbObjects()+"nuclei time "+t);
                                        pml.closeImages(imgNuc);
                                         }
-                                       catch (Exception e) {Logger.getLogger(PML_LiveCells.class.getName()).log(Level.SEVERE, null, e);}
+                                       catch (Exception e) {Logger.getLogger(PML_StarDist_Parallel2.class.getName()).log(Level.SEVERE, null, e);}
                                      }
                                   }
                             }
@@ -229,16 +229,15 @@ public class PML_StarDist_Parallel2 implements PlugIn {
              }
             IJ.showStatus("Process done");
             if (pml.verbose) IJ.log("Process done !");
-            pml.deleteTmpModelFileStarDist();
            
         } catch (DependencyException ex) {
-            Logger.getLogger(PML_LiveCells.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(PML_StarDist_Parallel2.class.getName()).log(Level.SEVERE, null, ex);
         } catch (ServiceException ex) {
-            Logger.getLogger(PML_LiveCells.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(PML_StarDist_Parallel2.class.getName()).log(Level.SEVERE, null, ex);
         } catch (FormatException ex) {
-            Logger.getLogger(PML_LiveCells.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(PML_StarDist_Parallel2.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException ex) {
-            Logger.getLogger(PML_LiveCells.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(PML_StarDist_Parallel2.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
     
@@ -333,7 +332,7 @@ public class PML_StarDist_Parallel2 implements PlugIn {
                                             newopt.setTBegin(0, t);
                                             newopt.setTEnd(0, t);
                                             imgPML = BF.openImagePlus(newopt)[0];
-                                            } catch (Exception e) { Logger.getLogger(PML_LiveCells.class.getName()).log(Level.SEVERE, null, e);}
+                                            } catch (Exception e) { Logger.getLogger(PML_StarDist_Parallel2.class.getName()).log(Level.SEVERE, null, e);}
                                         } else {
                                             String imageName = inDir+File.separator+rootName+"_"+chsName[channelIndex[1]]+"_t"+(t+1)+".TIF";
                                             if (pml.multiPos)
@@ -354,12 +353,7 @@ public class PML_StarDist_Parallel2 implements PlugIn {
 
                                         SubHyperstackMaker sub = new SubHyperstackMaker();
                                         ImagePlus anucleus = sub.makeSubhyperstack(alignednucleus, "1-1", "1-"+alignednucleus.getNSlices(), (t+1)+"-"+(t+1));
-                                        if (pml.trackMate_Detector_Method.equals("DoG"))   
-                                            pmlPop = pml.findDotsAlign(imgPML, anucleus, curtrans, 1, nucIndex);
-                                        if (pml.trackMate_Detector_Method.equals("LoG"))
-                                            pmlPop = pml.findDotsAlign(imgPML, anucleus, curtrans, 0, nucIndex);
-                                        if (pml.trackMate_Detector_Method.equals("StarDist"))
-                                            pmlPop = pml.findDotsStarDist(imgPML, anucleus, curtrans, nucIndex, true);
+                                        pmlPop = pml.findDotsStarDist(imgPML, anucleus, curtrans, nucIndex, true);
 
                                         // draw current time point
                                         dotBins[t] = pml.drawOneNucleiWithPMLOneTime(pmlPop, anucleus); 
@@ -422,7 +416,7 @@ public class PML_StarDist_Parallel2 implements PlugIn {
                     pml.closeImages(dotBin);
                     track = null;
                  }
-                catch (Exception e) {Logger.getLogger(PML_LiveCells.class.getName()).log(Level.SEVERE, null, e);}
+                catch (Exception e) {Logger.getLogger(PML_StarDist_Parallel2.class.getName()).log(Level.SEVERE, null, e);}
              }
     
     
