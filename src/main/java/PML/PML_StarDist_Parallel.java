@@ -244,7 +244,6 @@ public class PML_StarDist_Parallel implements PlugIn {
               }
             IJ.showStatus("Process done");
             if (pml.verbose) IJ.log("Process done !");
-            pml.deleteTmpModelFileStarDist();
         } catch (DependencyException ex) {
             Logger.getLogger(PML_LiveCells.class.getName()).log(Level.SEVERE, null, ex);
         } catch (ServiceException ex) {

@@ -311,7 +311,6 @@ public class PML_StarDist implements PlugIn {
                     if (pml.saveWhole) pml.saveWholeImage(imgWholeArray, outDirResults+rootName+"_ObjectsLowRes.tif");
              }
             IJ.showStatus("Process done"); 
-            pml.deleteTmpModelFileStarDist();
         } catch (DependencyException ex) {
             Logger.getLogger(PML_LiveCells.class.getName()).log(Level.SEVERE, null, ex);
         } catch (ServiceException ex) {

@@ -49,7 +49,6 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.ArrayUtils;
 
 import StardistPML.StarDist2D;
-import com.sun.jna.platform.win32.Winsvc;
 import ij.plugin.RoiEnlarger;
 import ij.plugin.RoiScaler;
 import ij.plugin.frame.RoiManager;
@@ -59,7 +58,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 import mcib3d.geom.Voxel3D;
 
         
@@ -112,7 +110,8 @@ public class PML_Tools {
     public double stardistOverlayThresh = 0.35;
     public double stardistProbThreshPML = 0.35;
     public double stardistOverlayThreshPML = 0.7;
-    public String stardistModel = "dsb2018_heavy_augment.zip";
+    public String stardistModelNucleus = "";
+    public String stardistModelPML = "";
     public String stardistOutput = "Label Image";
     
     public CLIJ2 clij2 = CLIJ2.getInstance();
@@ -121,28 +120,8 @@ public class PML_Tools {
     
     public static Object syncObject = new Object();
     public static Object transSyncObject = new Object();
-    private File tmpModelFile = null;
-    protected URL modelUrl = PML_Tools.class.getClassLoader().getResource("models/dsb2018_heavy_augment.zip");
     public boolean multiPos = true;
-        
-    
-    public void copyModelFileStarDist(){
-        try {
-             tmpModelFile = File.createTempFile("stardist_model_", ".zip"); 
-             Files.copy(modelUrl.openStream(), tmpModelFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException ex) {
-            Logger.getLogger(PML_Tools.class.getName()).log(Level.SEVERE, null, ex);
-        }
-    } 
-    
-    public void deleteTmpModelFileStarDist(){
-         try {
-                if (tmpModelFile != null && tmpModelFile.exists())
-                    tmpModelFile.delete();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-    }
+
     
      /**
      * check  installed modules
@@ -405,6 +384,9 @@ public class PML_Tools {
             gd.addChoice(chNames[index]+" : ", channels, channels[index]);
             index++;
         }
+        gd.addMessage("Stardist model files", Font.getFont("Monospace"), Color.blue);
+        gd.addFileField("Nucleus model :", stardistModelNucleus);
+        gd.addFileField("PML model :", stardistModelPML);
         gd.addMessage("PML parameters", Font.getFont("Monospace"), Color.blue);
         gd.addNumericField("Min PML size (µm3) : ", minPML, 3);
         gd.addNumericField("Max PML size (µm3) : ", maxPML, 3);
@@ -434,7 +416,8 @@ public class PML_Tools {
         for (int n = 0; n < chChoices.length; n++) {
             chChoices[n] = ArrayUtils.indexOf(channels, gd.getNextChoice());
         }
-
+        stardistModelNucleus = gd.getNextString();
+        stardistModelPML = gd.getNextString();
         minPML = gd.getNextNumber();
         maxPML = gd.getNextNumber();
         thMet = gd.getNextChoice();
@@ -452,10 +435,6 @@ public class PML_Tools {
         savePMLImg = gd.getNextBoolean();
         //saveDiffus = gd.getNextBoolean();
         verbose = gd.getNextBoolean();
-        
-        // initialize stardist model
-         if (trackMate_Detector_Method.equals("StarDist")) copyModelFileStarDist();
-        
         if (gd.wasCanceled())
                 chChoices = null;
         return(chChoices);
@@ -726,7 +705,8 @@ public class PML_Tools {
         }
         
         // Go StarDist
-        StarDist2D star = new StarDist2D(syncObject, tmpModelFile);
+        File starDistModelFile = new File(stardistModelPML);
+        StarDist2D star = new StarDist2D(syncObject, starDistModelFile);
         //IJ.run(imgDots, "Minimum 3D...", "x=0 y=0 z=1");
         star.loadInput(imgDots);
         star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThreshPML, stardistOverlayThreshPML, stardistOutput);
@@ -741,68 +721,69 @@ public class PML_Tools {
         closeImages(pmls);
        
         Objects3DPopulation pmlPop = new Objects3DPopulation(pop.getObjectsWithinVolume(minPML, maxPML, true));
-         Objects3DPopulation newPmlPop = new Objects3DPopulation();
-        for ( int i = 0; i < pmlPop.getNbObjects(); i++){
-            Object3D obj = pmlPop.getObject(i);
-            // no colocalisation: all pixels are black
-            if ( obj.getPixMeanValue(ImageHandler.wrap(nuc)) >= 5 ){
-            // remove top and bottom voxels due to over detection with Stardist
-            // only for object having more than 3 Z plans
-                int zplan = obj.getZmax() - obj.getZmin();
-                if (zplan >= 3) {
-                    int[] bBox = obj.getBoundingBox();
-                    int zmean = (bBox[5]-bBox[4])/2 + bBox[4];
-                    
-                    int[] meanBbox = {bBox[0], bBox[1], bBox[2], bBox[3], zmean, zmean};
-                    List<Voxel3D> voxels = getVoxelInsideBoundingBox(obj, meanBbox);
-                    Object3DVoxels meanSlice = new Object3DVoxels(voxels);
-                    double mrad = Math.pow(meanSlice.getAreaPixels()/Math.PI,0.5)*1.2;
-                    
-                    // min z bigger
-                    int zmin = obj.getZmin();
-                    int[] newBbox = {bBox[0], bBox[1], bBox[2], bBox[3], zmin, zmin};
-                    Object3DVoxels newObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, newBbox));
-                    double rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);
-                    while ((rad>mrad) & (zmin<bBox[5])) 
-                    {
-                        zmin++;
-                        int[] newBboxMin = {bBox[0], bBox[1], bBox[2], bBox[3], zmin, bBox[5]};
-                        newBbox[4] = zmin;
-                        newBbox[5] = zmin;
-                        List<Voxel3D> voxelsslice = getVoxelInsideBoundingBox(obj, newBbox);
-                        newObj = new Object3DVoxels(voxelsslice);
-                        rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);                        
-                    }
-                    
-                    // max z bigger
-                    int zmax = obj.getZmax();
-                    newBbox[4] = zmax;
-                    newBbox[5] = zmax;
-                    newObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, newBbox));
-                    rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);
-                    while ((rad>mrad)&(zmax>zmin)){
-                        zmax--;
-                        newBbox[4] = zmax;
-                        newBbox[5] = zmax;
-                        newObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, newBbox));
-                        rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);                        
-                    }
-                    
-                    int[] finalBbox = {bBox[0], bBox[1], bBox[2], bBox[3], zmin, zmax};
-                    Object3DVoxels finalObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, finalBbox));
-                    
-                   obj = null;
-                   newObj = null;
-                   newPmlPop.addObject(finalObj);
-                }
-                else 
-                {
-                 if ( (obj.getZmax() < nt) & (zplan>1) & (obj.getZmin()>1) ) newPmlPop.addObject(obj);
-                }
-        }
-        }
-        return(newPmlPop);
-       } 
+//        Objects3DPopulation newPmlPop = new Objects3DPopulation();
+//        for ( int i = 0; i < pmlPop.getNbObjects(); i++){
+//            Object3D obj = pmlPop.getObject(i);
+//            // no colocalisation: all pixels are black
+//            if ( obj.getPixMeanValue(ImageHandler.wrap(nuc)) >= 5 ){
+//            // remove top and bottom voxels due to over detection with Stardist
+//            // only for object having more than 3 Z plans
+//                int zplan = obj.getZmax() - obj.getZmin();
+//                if (zplan >= 3) {
+//                    int[] bBox = obj.getBoundingBox();
+//                    int zmean = (bBox[5]-bBox[4])/2 + bBox[4];
+//                    
+//                    int[] meanBbox = {bBox[0], bBox[1], bBox[2], bBox[3], zmean, zmean};
+//                    List<Voxel3D> voxels = getVoxelInsideBoundingBox(obj, meanBbox);
+//                    Object3DVoxels meanSlice = new Object3DVoxels(voxels);
+//                    double mrad = Math.pow(meanSlice.getAreaPixels()/Math.PI,0.5)*1.2;
+//                    
+//                    // min z bigger
+//                    int zmin = obj.getZmin();
+//                    int[] newBbox = {bBox[0], bBox[1], bBox[2], bBox[3], zmin, zmin};
+//                    Object3DVoxels newObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, newBbox));
+//                    double rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);
+//                    while ((rad>mrad) & (zmin<bBox[5])) 
+//                    {
+//                        zmin++;
+//                        int[] newBboxMin = {bBox[0], bBox[1], bBox[2], bBox[3], zmin, bBox[5]};
+//                        newBbox[4] = zmin;
+//                        newBbox[5] = zmin;
+//                        List<Voxel3D> voxelsslice = getVoxelInsideBoundingBox(obj, newBbox);
+//                        newObj = new Object3DVoxels(voxelsslice);
+//                        rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);                        
+//                    }
+//                    
+//                    // max z bigger
+//                    int zmax = obj.getZmax();
+//                    newBbox[4] = zmax;
+//                    newBbox[5] = zmax;
+//                    newObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, newBbox));
+//                    rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);
+//                    while ((rad>mrad)&(zmax>zmin)){
+//                        zmax--;
+//                        newBbox[4] = zmax;
+//                        newBbox[5] = zmax;
+//                        newObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, newBbox));
+//                        rad = Math.pow(newObj.getAreaPixels()/Math.PI,0.5);                        
+//                    }
+//                    
+//                    int[] finalBbox = {bBox[0], bBox[1], bBox[2], bBox[3], zmin, zmax};
+//                    Object3DVoxels finalObj = new Object3DVoxels(getVoxelInsideBoundingBox(obj, finalBbox));
+//                    
+//                   obj = null;
+//                   newObj = null;
+//                   newPmlPop.addObject(finalObj);
+//                }
+//                else 
+//                {
+//                 if ( (obj.getZmax() < nt) & (zplan>1) & (obj.getZmin()>1) ) newPmlPop.addObject(obj);
+//                }
+//        }
+//    }
+return(pmlPop);
+    //return(newPmlPop);
+} 
     
     
     /** 
@@ -1471,9 +1452,12 @@ public class PML_Tools {
     public ImagePlus stardistNuclei(ImagePlus imgNuc){
         double factor = 300.0/imgNuc.getWidth();
         ImagePlus resized = imgNuc.resize((int)(imgNuc.getWidth()*factor), (int)(imgNuc.getHeight()*factor), "bilinear");
+        // initialize stardist model
         StarDist2D star;
+
         //synchronized(syncObject){ 
-            star = new StarDist2D(syncObject, tmpModelFile);
+        File starDistModelFile = new File(stardistModelNucleus);
+        star = new StarDist2D(syncObject, starDistModelFile);
         //}
         star.loadInput(resized);
         star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistOutput);
@@ -1528,7 +1512,9 @@ public class PML_Tools {
         // clear slices on which there is no signal before to stardist it (to do: add in stardist a test if image is empty ?)
         clearSlicesWithoutSignal(resized);
         // Go StarDist
-        StarDist2D star = new StarDist2D(syncObject, tmpModelFile);
+        // initialize stardist model
+        File starDistModelFile = new File(stardistModelNucleus);
+        StarDist2D star = new StarDist2D(syncObject, starDistModelFile);
         star.loadInput(resized);
         star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistOutput);
         star.run();
@@ -1559,7 +1545,8 @@ public class PML_Tools {
         ImagePlus resized = imgNuc.resize((int)(imgNuc.getWidth()*factor), (int)(imgNuc.getHeight()*factor), "bilinear");
            StarDist2D star;
         //synchronized(syncObject){ 
-            star = new StarDist2D(syncObject, tmpModelFile);
+        File starDistModelFile = new File(stardistModelNucleus);
+        star = new StarDist2D(syncObject, starDistModelFile);
         //}
         star.loadInput(resized);
         star.setParams(stardistPercentileBottom, stardistPercentileTop, stardistProbThresh, stardistOverlayThresh, stardistOutput);
