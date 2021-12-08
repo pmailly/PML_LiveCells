@@ -52,12 +52,10 @@ import StardistPML.StarDist2D;
 import ij.plugin.RoiEnlarger;
 import ij.plugin.RoiScaler;
 import ij.plugin.frame.RoiManager;
-import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
+import java.io.FilenameFilter;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import mcib3d.geom.Voxel3D;
 
         
@@ -110,6 +108,7 @@ public class PML_Tools {
     public double stardistOverlayThresh = 0.35;
     public double stardistProbThreshPML = 0.35;
     public double stardistOverlayThreshPML = 0.7;
+    public File modelsPath = new File(IJ.getDirectory("imagej")+File.separator+"models");
     public String stardistModelNucleus = "";
     public String stardistModelPML = "";
     public String stardistOutput = "Label Image";
@@ -238,7 +237,7 @@ public class PML_Tools {
      * @param meta
      * @return 
      */
-    public Calibration findImageCalib(IMetadata meta) {
+    public Calibration findImageCalib(IMetadata meta, ImageProcessorReader reader) {
         cal = new Calibration();  
         // read image calibration
         cal.pixelWidth = meta.getPixelsPhysicalSizeX(0).value().doubleValue();
@@ -248,7 +247,7 @@ public class PML_Tools {
         else
             cal.pixelDepth = 1;
         cal.setUnit("microns");
-        System.out.println("x cal = " +cal.pixelWidth+", z cal=" + cal.pixelDepth+" "+cal.fps);
+        System.out.println("x cal = " +cal.pixelWidth+", z cal=" + cal.pixelDepth+" frames="+reader.getSizeT());
         return(cal);
     }
     
@@ -256,6 +255,19 @@ public class PML_Tools {
     {
         System.out.println("x cal = " +cal.pixelWidth+", z cal=" + cal.pixelDepth);
         return cal;
+    }
+    
+    /*
+    Find starDist models in Fiji models folder
+    */
+    private String[] findStardistModels() {
+        FilenameFilter filter = (dir, name) -> name.endsWith(".zip");
+        File[] modelList = modelsPath.listFiles(filter);
+        String[] models = new String[modelList.length];
+        for (int i = 0; i < modelList.length; i++) {
+            models[i] = modelList[i].getName();
+        }
+        return(models);
     }
     
     
@@ -372,8 +384,9 @@ public class PML_Tools {
      * @return 
      */
     public int[] dialog(String[] channels) {
-        String[] thMethods = new Thresholder().methods;
-        String[] TrackMate_Detector = {"DoG", "LoG", "StarDist"};
+        //String[] thMethods = new Thresholder().methods;
+        //String[] TrackMate_Detector = {"DoG", "LoG", "StarDist"};
+        String[] models = findStardistModels();
         String[] chNames = {"Nucleus", "PML"};
         GenericDialogPlus gd = new GenericDialogPlus("Parameters");
         gd.setInsets​(0, 80, 0);
@@ -385,56 +398,69 @@ public class PML_Tools {
             index++;
         }
         gd.addMessage("Stardist model files", Font.getFont("Monospace"), Color.blue);
-        gd.addFileField("Nucleus model :", stardistModelNucleus);
-        gd.addFileField("PML model :", stardistModelPML);
+        if (models.length >= 2) {
+            gd.addChoice("Nucleus model :",models, models[1]);
+            gd.addChoice("PMLs model    :",models, models[0]);
+        }
+        else {
+            gd.addFileField("Nucleus model :", stardistModelNucleus);
+            gd.addFileField("PML model     :", stardistModelPML);
+        }
         gd.addMessage("PML parameters", Font.getFont("Monospace"), Color.blue);
         gd.addNumericField("Min PML size (µm3) : ", minPML, 3);
         gd.addNumericField("Max PML size (µm3) : ", maxPML, 3);
-        gd.addMessage("Diffuse analyze", Font.getFont("Monospace"), Color.blue);
-        gd.addChoice("Dots threshold method : ", thMethods, thMet);
-        gd.addNumericField("PML dilatation factor (µm) :", dilate, 3);
+//        gd.addMessage("Diffuse analyze", Font.getFont("Monospace"), Color.blue);
+//        gd.addChoice("Dots threshold method : ", thMethods, thMet);
+//        gd.addNumericField("PML dilatation factor (µm) :", dilate, 3);
         gd.addMessage("Trackmate parameters", Font.getFont("Monospace"), Color.blue);
-        gd.addChoice("Dots detector method :", TrackMate_Detector, TrackMate_Detector[2]);
+        //gd.addChoice("Dots detector method :", TrackMate_Detector, TrackMate_Detector[2]);
         gd.addNumericField("Merging / spliting max distance : ", merging_dist,3);
         gd.addNumericField("PML dots radius (µm) :", radius, 3);
         gd.addNumericField("Tracking max distance : ", track_dist,3);
         
-        gd.addNumericField("PML threshold        :", threshold, 3);
+        //gd.addNumericField("PML threshold        :", threshold, 3);
         gd.addMessage("Image calibration", Font.getFont("Monospace"), Color.blue);
         gd.addNumericField("Calibration xy (µm)  :", cal.pixelWidth, 3);
-        if ( cal.pixelDepth == 1) cal.pixelDepth = 0.5;
+        if (cal.pixelDepth == 1)
+            cal.pixelDepth = 0.5;
         gd.addNumericField("Calibration z (µm)  :", cal.pixelDepth, 3);
         gd.addCheckbox("Multi position", multiPos);
         gd.addMessage("Output options", Font.getFont("Monospace"), Color.blue);
-        gd.addCheckbox("Save all nucleus stack", saveWhole);
-         gd.addCheckbox("Save pml stack", savePMLImg);
+        //gd.addCheckbox("Save all nucleus stack", saveWhole);
+        gd.addCheckbox("Save pml stack", savePMLImg);
         //gd.addCheckbox("Save diffus", saveDiffus);
         
-        gd.addCheckbox("verbose", verbose);
+        //gd.addCheckbox("verbose", verbose);
         gd.showDialog();
         int[] chChoices = new int[channels.length];
         for (int n = 0; n < chChoices.length; n++) {
             chChoices[n] = ArrayUtils.indexOf(channels, gd.getNextChoice());
         }
-        stardistModelNucleus = gd.getNextString();
-        stardistModelPML = gd.getNextString();
+        if (models.length >= 2) {
+            stardistModelNucleus = modelsPath+File.separator+gd.getNextChoice();
+            stardistModelPML = modelsPath+File.separator+gd.getNextChoice();
+        }
+        else {
+            stardistModelNucleus = gd.getNextString();
+            stardistModelPML = gd.getNextString();
+        }
         minPML = gd.getNextNumber();
         maxPML = gd.getNextNumber();
-        thMet = gd.getNextChoice();
-        dilate = (float)gd.getNextNumber();
-        trackMate_Detector_Method = gd.getNextChoice();
+//        thMet = gd.getNextChoice();
+//        dilate = (float)gd.getNextNumber();
+//        trackMate_Detector_Method = gd.getNextChoice();
         merging_dist = gd.getNextNumber();
         radius = gd.getNextNumber();
         track_dist = gd.getNextNumber();
-        threshold = gd.getNextNumber();
+//        threshold = gd.getNextNumber();
         cal.pixelWidth = gd.getNextNumber();
         cal.pixelHeight = cal.pixelWidth;
         cal.pixelDepth = gd.getNextNumber();
         multiPos = gd.getNextBoolean();
-        saveWhole = gd.getNextBoolean();
+//        saveWhole = gd.getNextBoolean();
         savePMLImg = gd.getNextBoolean();
         //saveDiffus = gd.getNextBoolean();
-        verbose = gd.getNextBoolean();
+//        verbose = gd.getNextBoolean();
         if (gd.wasCanceled())
                 chChoices = null;
         return(chChoices);
@@ -721,11 +747,11 @@ public class PML_Tools {
         closeImages(pmls);
        
         Objects3DPopulation pmlPop = new Objects3DPopulation(pop.getObjectsWithinVolume(minPML, maxPML, true));
-//        Objects3DPopulation newPmlPop = new Objects3DPopulation();
-//        for ( int i = 0; i < pmlPop.getNbObjects(); i++){
-//            Object3D obj = pmlPop.getObject(i);
+        Objects3DPopulation newPmlPop = new Objects3DPopulation();
+        for ( int i = 0; i < pmlPop.getNbObjects(); i++){
+            Object3D obj = pmlPop.getObject(i);
 //            // no colocalisation: all pixels are black
-//            if ( obj.getPixMeanValue(ImageHandler.wrap(nuc)) >= 5 ){
+            if ( obj.getPixMeanValue(ImageHandler.wrap(nuc)) >= 5 ){
 //            // remove top and bottom voxels due to over detection with Stardist
 //            // only for object having more than 3 Z plans
 //                int zplan = obj.getZmax() - obj.getZmin();
@@ -779,10 +805,11 @@ public class PML_Tools {
 //                {
 //                 if ( (obj.getZmax() < nt) & (zplan>1) & (obj.getZmin()>1) ) newPmlPop.addObject(obj);
 //                }
-//        }
-//    }
-return(pmlPop);
-    //return(newPmlPop);
+                newPmlPop.addObject(obj);
+        }
+    }
+// return(pmlPop);
+return(newPmlPop);
 } 
     
     
@@ -859,7 +886,11 @@ return(pmlPop);
         return(pmlIntDiffuse);
     }
     
-    
+    private int generateRandom(int min, int max, int exnum) {
+        int randomNumber = ThreadLocalRandom.current().nextInt(min, max + 1);
+        return (randomNumber == exnum ? generateRandom(min, max, exnum) : randomNumber);
+    }
+
     /**
      * Save image objects
      */
@@ -876,7 +907,8 @@ return(pmlPop);
             for (int o = 0; o < pmlPop.getNbObjects(); o++) 
             {
                 Object3D pmlObj = pmlPop.getObject(o);
-                pmlObj.draw(imhObjects, 255);
+                int rn = generateRandom(10, 255, 64);
+                pmlObj.draw(imhObjects, rn);
             }
             imhObjects.getImagePlus().setCalibration(cal);
             imhObjects.getImagePlus().setSlice(imhObjects.getImagePlus().getNSlices()/2);
@@ -886,6 +918,7 @@ return(pmlPop);
         }
        
        ImagePlus hyperRes = new Concatenator().concatenate(hyperBin, false);
+       IJ.run(hyperRes, "3-3-2 RGB", "");
        //hyperRes.show();
         // save image for objects population
         FileSaver ImgObjectsFile = new FileSaver(hyperRes);
@@ -905,7 +938,7 @@ return(pmlPop);
         for (int i = 0; i < imgArray.length; i++) {
            ImageHandler imh = ImageHandler.wrap(imgArray[i]).createSameDimensions();
            Objects3DPopulation pmlPop = pmlPopList.get(i);
-           pmlPop.draw(imh, 255);
+           double rn = generateRandom(10, 255, 64);
            hyperPML[i] = imh.getImagePlus(); 
            hyperPMLOrg[i] = imgArray[i];
           }
@@ -1171,7 +1204,10 @@ return(pmlPop);
             // draw PMLs on the stack
             if ( pmlPop != null ){
                 ImageHandler imh = ImageHandler.wrap(nucleus);
-                pmlPop.draw(imh, 255);
+                for (int j = 0; j < pmlPop.getNbObjects(); j++) {
+                    double rn = generateRandom(10, 255, 128);
+                    pmlPop.getObject(j).draw(imh, (int)rn);
+                }
                 return imh.getImagePlus();
              }  
             return nucleus;
@@ -1192,14 +1228,18 @@ return(pmlPop);
             if ( i < pmlPopList.size() ){
                 ImageHandler imh = ImageHandler.wrap(nuc);
                 Objects3DPopulation pmlPop = pmlPopList.get(i);
-                pmlPop.draw(imh, 255);
+                for (int j = 0; j < pmlPop.getNbObjects(); j++) {
+                    int rn = generateRandom(10, 255, 128);
+                    pmlPop.getObject(j).draw(imh, rn);
+                }
                 hyper[i] = imh.getImagePlus();
              } else {
                 hyper[i] = nuc;
             }
         }
         
-        ImagePlus res = new Concatenator().concatenate(hyper, false);    
+        ImagePlus res = new Concatenator().concatenate(hyper, false); 
+        IJ.run(res, "3-3-2 RGB", "");
         FileSaver filePML = new FileSaver(res);
         filePML.saveAsTiff(root+"_NucleusPMLs-"+index+".tif");
         //closeImages(pml);
@@ -1417,17 +1457,16 @@ return(pmlPop);
     }
         
         public void clearSlice(ImagePlus ip, int slice) {
-                ip.setSlice(slice);
-                IJ.run(ip, "Select All", "");
-		IJ.setBackgroundColor(0, 0, 0);
-		IJ.run(ip, "Clear", "slice");
-                IJ.run(ip, "Select None", "");
+            ip.setSlice(slice);
+            IJ.run(ip, "Select All", "");
+            IJ.setBackgroundColor(0, 0, 0);
+            IJ.run(ip, "Clear", "slice");
+            IJ.run(ip, "Select None", "");
         }
         
         public void clearSlicesWithoutNuclei(ImagePlus imp, ImagePlus nucleus) {
         // get rid of extreme slices without nuclei
         ImageStatistics stat = nucleus.getStatistics();
-        
        for ( int i=1; i <= imp.getNSlices(); i++ )
        {
             nucleus.setSlice(i);

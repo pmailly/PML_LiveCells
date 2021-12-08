@@ -66,7 +66,7 @@ public class PML_StarDist_Parallel2 implements PlugIn {
     public void run(String arg) {
         LogStream ls = new LogStream();
         ls.redirectSystem();
-                           
+        IJ.run("Colors...", "foreground=white background=black selection=yellow");          
         try {
             if (canceled) {
                 IJ.showMessage(" Pluging canceled");
@@ -105,7 +105,7 @@ public class PML_StarDist_Parallel2 implements PlugIn {
             
             // Find channel names , calibration
             reader.setId(imageFiles.get(0));
-            cal = pml.findImageCalib(meta);
+            cal = pml.findImageCalib(meta, reader);
             chsName = pml.findChannels(imageFiles.get(0), meta, reader, bioformat);
             //System.out.println(chsName[0]);
             channelIndex = pml.dialog(chsName);
@@ -182,7 +182,7 @@ public class PML_StarDist_Parallel2 implements PlugIn {
                                        if (pml.verbose) IJ.log("Found "+nucPop.getNbObjects()+"nuclei time "+t);
                                        pml.closeImages(imgNuc);
                                         }
-                                       catch (Exception e) {Logger.getLogger(PML_LiveCells.class.getName()).log(Level.SEVERE, null, e);}
+                                       catch (Exception e) {Logger.getLogger(PML_StarDist_Parallel2.class.getName()).log(Level.SEVERE, null, e);}
                                      }
                                   }
                             }
@@ -231,13 +231,13 @@ public class PML_StarDist_Parallel2 implements PlugIn {
             if (pml.verbose) IJ.log("Process done !");
            
         } catch (DependencyException ex) {
-            Logger.getLogger(PML_LiveCells.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(PML_StarDist_Parallel2.class.getName()).log(Level.SEVERE, null, ex);
         } catch (ServiceException ex) {
-            Logger.getLogger(PML_LiveCells.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(PML_StarDist_Parallel2.class.getName()).log(Level.SEVERE, null, ex);
         } catch (FormatException ex) {
-            Logger.getLogger(PML_LiveCells.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(PML_StarDist_Parallel2.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException ex) {
-            Logger.getLogger(PML_LiveCells.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(PML_StarDist_Parallel2.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
     
@@ -332,7 +332,7 @@ public class PML_StarDist_Parallel2 implements PlugIn {
                                             newopt.setTBegin(0, t);
                                             newopt.setTEnd(0, t);
                                             imgPML = BF.openImagePlus(newopt)[0];
-                                            } catch (Exception e) { Logger.getLogger(PML_LiveCells.class.getName()).log(Level.SEVERE, null, e);}
+                                            } catch (Exception e) { Logger.getLogger(PML_StarDist_Parallel2.class.getName()).log(Level.SEVERE, null, e);}
                                         } else {
                                             String imageName = inDir+File.separator+rootName+"_"+chsName[channelIndex[1]]+"_t"+(t+1)+".TIF";
                                             if (pml.multiPos)
@@ -421,7 +421,7 @@ public class PML_StarDist_Parallel2 implements PlugIn {
                     pml.closeImages(dotBin);
                     track = null;
                  }
-                catch (Exception e) {Logger.getLogger(PML_LiveCells.class.getName()).log(Level.SEVERE, null, e);}
+                catch (Exception e) {Logger.getLogger(PML_StarDist_Parallel2.class.getName()).log(Level.SEVERE, null, e);}
              }
     
     
