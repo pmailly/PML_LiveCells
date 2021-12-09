@@ -173,6 +173,8 @@ public class PML_Tools {
             if (fileExt.equals(imageExt))
                 images.add(imagesFolder + File.separator + f);
         }
+        if(images.contains("_s1_"))
+            multiPos = true;
         Collections.sort(images);
         return(images);
     }
@@ -886,9 +888,9 @@ return(newPmlPop);
         return(pmlIntDiffuse);
     }
     
-    private int generateRandom(int min, int max, int exnum) {
+    private int generateRandom(int min, int max) {
         int randomNumber = ThreadLocalRandom.current().nextInt(min, max + 1);
-        return (randomNumber == exnum ? generateRandom(min, max, exnum) : randomNumber);
+        return (randomNumber);
     }
 
     /**
@@ -907,7 +909,7 @@ return(newPmlPop);
             for (int o = 0; o < pmlPop.getNbObjects(); o++) 
             {
                 Object3D pmlObj = pmlPop.getObject(o);
-                int rn = generateRandom(10, 255, 64);
+                int rn = generateRandom(155, 255);
                 pmlObj.draw(imhObjects, rn);
             }
             imhObjects.getImagePlus().setCalibration(cal);
@@ -938,7 +940,7 @@ return(newPmlPop);
         for (int i = 0; i < imgArray.length; i++) {
            ImageHandler imh = ImageHandler.wrap(imgArray[i]).createSameDimensions();
            Objects3DPopulation pmlPop = pmlPopList.get(i);
-           double rn = generateRandom(10, 255, 64);
+           double rn = generateRandom(155, 255);
            hyperPML[i] = imh.getImagePlus(); 
            hyperPMLOrg[i] = imgArray[i];
           }
@@ -989,7 +991,7 @@ return(newPmlPop);
         for (int i=0; i<pop.getNbObjects(); i++)
         {
             ImageHandler imhObjects = ImageHandler.wrap(imArray[i]).createSameDimensions();
-            pop.getObject(i).draw(imhObjects, 125); 
+            pop.getObject(i).draw(imhObjects, 64); 
             imhObjects.getImagePlus().setCalibration(cal);
             hyperBin[i] = imhObjects.getImagePlus();
             if ( label ){
@@ -1023,7 +1025,7 @@ return(newPmlPop);
             ImagePlus resized = imArray[i].resize((int)(imArray[i].getWidth()/factor), (int)(imArray[i].getHeight()/factor), "none");
             ImageHandler imhObjects = ImageHandler.wrap(resized);
             //System.out.println(nnuc+" "+i+" "+pop.getObject(i).getCenterUnit());
-            pop.getObject(i).draw(imhObjects, 125);
+            pop.getObject(i).draw(imhObjects, 64);
             if ( i < pmlPopList.size()){
                 Objects3DPopulation pmlpop = pmlPopList.get(i);
                 pmlpop.draw(imhObjects, 255);
@@ -1053,7 +1055,7 @@ return(newPmlPop);
             ImagePlus resized = imArray[i].resize((int)(imArray[i].getWidth()/factor), (int)(imArray[i].getHeight()/factor), "none");
             ImageHandler imhObjects = ImageHandler.wrap(resized);
             //System.out.println(nnuc+" "+i+" "+pop.getObject(i).getCenterUnit());
-            pop.getObject(i).draw(imhObjects, 125);
+            pop.getObject(i).draw(imhObjects, 64);
             if ( i < pmlPopList.length){
                 Objects3DPopulation pmlpop = pmlPopList[i];
                 pmlpop.draw(imhObjects, 255);
@@ -1200,13 +1202,13 @@ return(newPmlPop);
     }
       
     public ImagePlus drawOneNucleiWithPMLOneTime(Objects3DPopulation pmlPop, ImagePlus nucleus) {
-            IJ.run(nucleus, "Multiply...", "value=0.5 stack"); 
+            IJ.run(nucleus, "Multiply...", "value=0.25 stack"); 
             // draw PMLs on the stack
             if ( pmlPop != null ){
                 ImageHandler imh = ImageHandler.wrap(nucleus);
                 for (int j = 0; j < pmlPop.getNbObjects(); j++) {
-                    double rn = generateRandom(10, 255, 128);
-                    pmlPop.getObject(j).draw(imh, (int)rn);
+                    int rn = generateRandom(155, 255);
+                    pmlPop.getObject(j).draw(imh, rn);
                 }
                 return imh.getImagePlus();
              }  
@@ -1223,13 +1225,13 @@ return(newPmlPop);
         for (int i=0; i<hyper.length; i++){
             // get z-stack at time i+1
             ImagePlus nuc = sub.makeSubhyperstack(nucleus, "1-1", "1-"+nucleus.getNSlices(), (i+1)+"-"+(i+1));
-            IJ.run(nuc, "Multiply...", "value=0.5 stack"); 
+            IJ.run(nuc, "Multiply...", "value=0.25 stack"); 
             // draw PMLs on the stack
             if ( i < pmlPopList.size() ){
                 ImageHandler imh = ImageHandler.wrap(nuc);
                 Objects3DPopulation pmlPop = pmlPopList.get(i);
                 for (int j = 0; j < pmlPop.getNbObjects(); j++) {
-                    int rn = generateRandom(10, 255, 128);
+                    int rn = generateRandom(155, 255);
                     pmlPop.getObject(j).draw(imh, rn);
                 }
                 hyper[i] = imh.getImagePlus();
