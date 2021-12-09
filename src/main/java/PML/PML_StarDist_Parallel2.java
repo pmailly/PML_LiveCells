@@ -29,6 +29,7 @@ import ij.plugin.Concatenator;
 import ij.plugin.SubHyperstackMaker;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -66,7 +67,6 @@ public class PML_StarDist_Parallel2 implements PlugIn {
     public void run(String arg) {
         LogStream ls = new LogStream();
         ls.redirectSystem();
-        IJ.run("Colors...", "foreground=white background=black selection=yellow");          
         try {
             if (canceled) {
                 IJ.showMessage(" Pluging canceled");
@@ -112,6 +112,7 @@ public class PML_StarDist_Parallel2 implements PlugIn {
             cal = pml.getCalib();
             if (channelIndex == null)
                 return;
+            Collections.sort(imageFiles);
             for (String cf : imageFiles) {
                 f = cf;
                 rootName = FilenameUtils.getBaseName(f);

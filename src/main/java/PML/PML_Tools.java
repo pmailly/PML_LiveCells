@@ -1546,10 +1546,14 @@ return(newPmlPop);
         int newwidth = 300;
         ImagePlus resized = imgNuc.resize(newwidth, (int)(height*newwidth*1.0/width), "bilinear");
         resized.setCalibration(cal);
+        resized.setTitle(imgNuc.getTitle());
         closeImages(imgNuc);
         IJ.run(resized, "Remove Outliers", "block_radius_x=2 block_radius_y=2 standard_deviations=1 stack");
         // clear slices on which there is no signal before to stardist it (to do: add in stardist a test if image is empty ?)
-        clearSlicesWithoutSignal(resized);
+        //clearSlicesWithoutSignal(resized);
+        // Clear unfocus Z plan
+        Find_focused_slices focus = new Find_focused_slices();
+        focus.run(resized);
         // Go StarDist
         // initialize stardist model
         File starDistModelFile = new File(stardistModelNucleus);
