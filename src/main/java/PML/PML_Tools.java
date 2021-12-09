@@ -119,7 +119,7 @@ public class PML_Tools {
     
     public static Object syncObject = new Object();
     public static Object transSyncObject = new Object();
-    public boolean multiPos = true;
+    public boolean multiPos = false;
 
     
      /**
@@ -173,7 +173,7 @@ public class PML_Tools {
             if (fileExt.equals(imageExt))
                 images.add(imagesFolder + File.separator + f);
         }
-        if(images.contains("_s1_"))
+        if(images.get(0).contains("_s1_"))
             multiPos = true;
         Collections.sort(images);
         return(images);
@@ -1175,7 +1175,7 @@ return(newPmlPop);
         if (saveObj) {
         // align nucleus stack
         nucleus = alignStack(trans, unnucl, true, id);
-         IJ.run(nucleus, "Multiply...", "value=0.5 stack"); 
+         IJ.run(nucleus, "Multiply...", "value=0.25 stack"); 
         }
         closeImages(unnucl);
 
