@@ -107,8 +107,8 @@ public class PML_Tools {
     public double stardistPercentileTop = 99.8;
     public double stardistProbThresh = 0.55;
     public double stardistOverlayThresh = 0.35;
-    public double stardistProbThreshPML = 0.35;
-    public double stardistOverlayThreshPML = 0.7;
+    public double stardistProbThreshPML = 0.30;
+    public double stardistOverlayThreshPML = 0.35;
     public File modelsPath = new File(IJ.getDirectory("imagej")+File.separator+"models");
     public String stardistModelNucleus = "";
     public String stardistModelPML = "";
@@ -398,7 +398,12 @@ public class PML_Tools {
             gd.addChoice(chNames[index]+" : ", channels, channels[index]);
             index++;
         }
-        gd.addMessage("Stardist model files", Font.getFont("Monospace"), Color.blue);
+        gd.addMessage("PML parameters", Font.getFont("Monospace"), Color.blue);
+        gd.addNumericField("Min PML size (µm3) : ", minPML, 3);
+        gd.addNumericField("Max PML size (µm3) : ", maxPML, 3);
+        gd.addMessage("Stardist parameters", Font.getFont("Monospace"), Color.blue);
+        gd.addNumericField("Probability threshold :", stardistProbThreshPML, 4);
+        gd.addNumericField("Overlay threshold     :", stardistOverlayThreshPML, 4);
         if (models.length >= 2) {
             gd.addChoice("Nucleus model :",models, models[1]);
             gd.addChoice("PMLs model    :",models, models[0]);
@@ -407,19 +412,10 @@ public class PML_Tools {
             gd.addFileField("Nucleus model :", stardistModelNucleus);
             gd.addFileField("PML model     :", stardistModelPML);
         }
-        gd.addMessage("PML parameters", Font.getFont("Monospace"), Color.blue);
-        gd.addNumericField("Min PML size (µm3) : ", minPML, 3);
-        gd.addNumericField("Max PML size (µm3) : ", maxPML, 3);
-//        gd.addMessage("Diffuse analyze", Font.getFont("Monospace"), Color.blue);
-//        gd.addChoice("Dots threshold method : ", thMethods, thMet);
-//        gd.addNumericField("PML dilatation factor (µm) :", dilate, 3);
         gd.addMessage("Trackmate parameters", Font.getFont("Monospace"), Color.blue);
-        //gd.addChoice("Dots detector method :", TrackMate_Detector, TrackMate_Detector[2]);
         gd.addNumericField("Merging / spliting max distance : ", merging_dist,3);
         gd.addNumericField("PML dots radius (µm) :", radius, 3);
         gd.addNumericField("Tracking max distance : ", track_dist,3);
-        
-        //gd.addNumericField("PML threshold        :", threshold, 3);
         gd.addMessage("Image calibration", Font.getFont("Monospace"), Color.blue);
         gd.addNumericField("Calibration xy (µm)  :", cal.pixelWidth, 3);
         if (cal.pixelDepth == 1)
@@ -427,16 +423,16 @@ public class PML_Tools {
         gd.addNumericField("Calibration z (µm)  :", cal.pixelDepth, 3);
         gd.addCheckbox("Multi position", multiPos);
         gd.addMessage("Output options", Font.getFont("Monospace"), Color.blue);
-        //gd.addCheckbox("Save all nucleus stack", saveWhole);
         gd.addCheckbox("Save pml stack", savePMLImg);
-        //gd.addCheckbox("Save diffus", saveDiffus);
-        
-        //gd.addCheckbox("verbose", verbose);
         gd.showDialog();
         int[] chChoices = new int[channels.length];
         for (int n = 0; n < chChoices.length; n++) {
             chChoices[n] = ArrayUtils.indexOf(channels, gd.getNextChoice());
         }
+        minPML = gd.getNextNumber();
+        maxPML = gd.getNextNumber();
+        stardistProbThreshPML = gd.getNextNumber();
+        stardistOverlayThreshPML = gd.getNextNumber();
         if (models.length >= 2) {
             stardistModelNucleus = modelsPath+File.separator+gd.getNextChoice();
             stardistModelPML = modelsPath+File.separator+gd.getNextChoice();
@@ -445,23 +441,14 @@ public class PML_Tools {
             stardistModelNucleus = gd.getNextString();
             stardistModelPML = gd.getNextString();
         }
-        minPML = gd.getNextNumber();
-        maxPML = gd.getNextNumber();
-//        thMet = gd.getNextChoice();
-//        dilate = (float)gd.getNextNumber();
-//        trackMate_Detector_Method = gd.getNextChoice();
         merging_dist = gd.getNextNumber();
         radius = gd.getNextNumber();
         track_dist = gd.getNextNumber();
-//        threshold = gd.getNextNumber();
         cal.pixelWidth = gd.getNextNumber();
         cal.pixelHeight = cal.pixelWidth;
         cal.pixelDepth = gd.getNextNumber();
         multiPos = gd.getNextBoolean();
-//        saveWhole = gd.getNextBoolean();
         savePMLImg = gd.getNextBoolean();
-        //saveDiffus = gd.getNextBoolean();
-//        verbose = gd.getNextBoolean();
         if (gd.wasCanceled())
                 chChoices = null;
         return(chChoices);
@@ -1476,10 +1463,10 @@ return(newPmlPop);
             if (stat.mean < 5)
             {
                 imp.setSlice(i);
-                IJ.run(imp, "Select All", "");
-		IJ.setBackgroundColor(0, 0, 0);
-		IJ.run(imp, "Clear", "slice");
-                IJ.run(imp, "Select None", "");
+                ImageProcessor ip = imp.getProcessor();
+                ip.resetRoi();
+                ip.setColor(Color.black);
+                ip.fill();
             }
         }
      }

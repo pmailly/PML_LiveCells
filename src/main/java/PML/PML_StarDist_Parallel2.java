@@ -28,7 +28,6 @@ import ij.plugin.Concatenator;
 import ij.plugin.SubHyperstackMaker;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -98,15 +97,16 @@ public class PML_StarDist_Parallel2 implements PlugIn {
             IMetadata meta = service.createOMEXMLMetadata();
             ImageProcessorReader reader = new ImageProcessorReader();
             reader.setMetadataStore(meta);
-            // Check multipos
-            if(imageFiles.get(0).contains("_s1_"))
-                pml.multiPos = true;
-            
+            // Reset foreground and background
+            IJ.run("Colors...", "foreground=white background=black");
             // Find channel names , calibration
             reader.setId(imageFiles.get(0));
             cal = pml.findImageCalib(meta, reader);
             chsName = pml.findChannels(imageFiles.get(0), meta, reader, bioformat);
-            //System.out.println(chsName[0]);
+            // Check multipos
+            String seriesName = meta.getImageName(0);
+            if(seriesName.contains("Stage"))
+                pml.multiPos = true;
             channelIndex = pml.dialog(chsName);
             cal = pml.getCalib();
             if (channelIndex == null)
@@ -132,7 +132,6 @@ public class PML_StarDist_Parallel2 implements PlugIn {
                 }
                 
                 final int time = reader.getSizeT();
-                //final int time = 4;
                 //if (pml.verbose) IJ.log("\\Clear");
                 int nz = reader.getSizeZ();
                 
