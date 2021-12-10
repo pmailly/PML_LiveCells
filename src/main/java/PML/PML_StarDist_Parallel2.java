@@ -11,7 +11,6 @@ package PML;
 import ij.*;
 import ij.gui.Roi;
 import ij.io.FileSaver;
-import ij.io.LogStream;
 import ij.plugin.PlugIn;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -29,6 +28,7 @@ import ij.plugin.Concatenator;
 import ij.plugin.SubHyperstackMaker;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -84,7 +84,6 @@ public class PML_StarDist_Parallel2 implements PlugIn {
             if (imageFiles == null) {
                 return;
             }
-            
             // create output folder
             outDirResults = imageDir + "Results"+ File.separator;
             File outDir = new File(outDirResults);
@@ -99,7 +98,9 @@ public class PML_StarDist_Parallel2 implements PlugIn {
             IMetadata meta = service.createOMEXMLMetadata();
             ImageProcessorReader reader = new ImageProcessorReader();
             reader.setMetadataStore(meta);
-            
+            // Check multipos
+            if(imageFiles.get(0).contains("_s1_"))
+                pml.multiPos = true;
             
             // Find channel names , calibration
             reader.setId(imageFiles.get(0));

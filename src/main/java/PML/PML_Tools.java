@@ -174,9 +174,6 @@ public class PML_Tools {
             if (fileExt.equals(imageExt))
                 images.add(imagesFolder + File.separator + f);
         }
-        if(images.get(0).contains("_s1_"))
-            multiPos = true;
-        Collections.sort(images);
         return(images);
     }
        
