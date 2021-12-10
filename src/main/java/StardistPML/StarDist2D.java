@@ -114,8 +114,10 @@ public class StarDist2D extends StarDist2DBase implements Command {
             roiPositionActive = input.numDimensions() > 3 && !input.isRGBMerged() ? "Hyperstack" : "Stack";
         else
             roiPositionActive = roiPosition;
-
+        
+        System.setOut(new NullPrintStream());
         try {
+            
             final HashMap<String, Object> paramsCNN = new HashMap<>();
             paramsCNN.put("input", input);
             paramsCNN.put("normalizeInput", normalizeInput);
@@ -196,8 +198,11 @@ public class StarDist2D extends StarDist2DBase implements Command {
                 label = (Dataset) futureNMS.get().getOutput("label");
             } 
         } catch (InterruptedException | ExecutionException e) {
+            System.setOut(System.out);
             e.printStackTrace();
         } 
+        
+        System.setOut(System.out);
     }
 
     // this function is very cumbersome... is there a better way to do this?
