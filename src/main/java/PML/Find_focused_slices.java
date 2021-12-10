@@ -23,7 +23,7 @@ public class Find_focused_slices implements PlugInFilter, Measurements {
 
     boolean abort = false;
     double percent = 30;
-    double vThr = 1.00;
+    double vThr = 0.00;
     boolean consecutive = true;
     boolean edge = false;
 
@@ -53,10 +53,10 @@ public class Find_focused_slices implements PlugInFilter, Measurements {
             }
 
         }
-        if (vMax < vThr) {
-            IJ.error("All slices are below the variance threshold value");
-            return;
-        }
+//        if (vMax < vThr) {
+//            IJ.error("All slices are below the variance threshold value");
+//            return;
+//        }
         for (int slice = 1; slice <= size; slice++) {
             imp.setSlice(slice);
             ImageProcessor ip = imp.getProcessor();
