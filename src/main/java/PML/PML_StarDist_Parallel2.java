@@ -65,8 +65,6 @@ public class PML_StarDist_Parallel2 implements PlugIn {
      */
     @Override
     public void run(String arg) {
-        LogStream ls = new LogStream();
-        ls.redirectSystem();
         try {
             if (canceled) {
                 IJ.showMessage(" Pluging canceled");
@@ -134,7 +132,7 @@ public class PML_StarDist_Parallel2 implements PlugIn {
                 
                 final int time = reader.getSizeT();
                 //final int time = 4;
-                if (pml.verbose) IJ.log("\\Clear");
+                //if (pml.verbose) IJ.log("\\Clear");
                 int nz = reader.getSizeZ();
                 
                 ArrayList<Objects3DPopulation> nuclei = new ArrayList<Objects3DPopulation>();
@@ -191,7 +189,7 @@ public class PML_StarDist_Parallel2 implements PlugIn {
                    }
                   ThreadUtil.startAndJoin(threads);
                   threads = null;
-                  IJ.log("\\Clear");
+                  //IJ.log("\\Clear");
                   
                     // Do each nuclei that is kept long enough
                      // "Track" nuclei: sorted by time to sorted by nuclei index
@@ -224,7 +222,7 @@ public class PML_StarDist_Parallel2 implements PlugIn {
                     doOneNucleus(nucIndex, nuc, time, nz);
                     nuclei.remove(0);
                     nucIndex++;
-                    IJ.log("\\Clear");
+                    //IJ.log("\\Clear");
                  }
                 nuclei = null;
              }
