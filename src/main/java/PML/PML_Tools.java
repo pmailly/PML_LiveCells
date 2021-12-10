@@ -53,6 +53,7 @@ import ij.plugin.RoiEnlarger;
 import ij.plugin.RoiScaler;
 import ij.plugin.frame.RoiManager;
 import java.io.FilenameFilter;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
@@ -269,6 +270,7 @@ public class PML_Tools {
         for (int i = 0; i < modelList.length; i++) {
             models[i] = modelList[i].getName();
         }
+        Arrays.sort(models);
         return(models);
     }
     
