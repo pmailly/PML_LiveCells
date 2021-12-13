@@ -156,6 +156,9 @@ public class PML_Tools {
     
     /**
      * Find images in folder
+     * @param imagesFolder
+     * @param imageExt
+     * @return 
      */
     public ArrayList<String> findImages(String imagesFolder, String imageExt) {
         File inDir = new File(imagesFolder);
@@ -194,11 +197,11 @@ public class PML_Tools {
                     if (meta.getChannelID(0, n) == null)
                         channels[n] = Integer.toString(n);
                     else 
-                        channels[n] = meta.getChannelName(0, n).toString();
-                        if (!bioformat) {
-                            channels[n] = channels[n].replace("_", "-");
-                            channels[n] = "w"+(n+1)+channels[n];
-                        }
+                        channels[n] = meta.getChannelName(0, n);
+                    if (!bioformat) {
+                        channels[n] = channels[n].replace("_", "-");
+                        channels[n] = "w"+(n+1)+channels[n];
+                    }
                 }
                 break;
             case "lif" :
@@ -206,14 +209,14 @@ public class PML_Tools {
                     if (meta.getChannelID(0, n) == null)
                         channels[n] = Integer.toString(n);
                     else 
-                        channels[n] = meta.getChannelName(0, n).toString();
+                        channels[n] = meta.getChannelName(0, n);
                 break;
             case "czi" :
                 for (int n = 0; n < chs; n++) 
                     if (meta.getChannelID(0, n) == null)
                         channels[n] = Integer.toString(n);
                     else 
-                        channels[n] = meta.getChannelFluor(0, n).toString();
+                        channels[n] = meta.getChannelFluor(0, n);
                 break;
             case "ics" :
                 for (int n = 0; n < chs; n++) 
@@ -402,8 +405,8 @@ public class PML_Tools {
         gd.addNumericField("Probability threshold :", stardistProbThreshPML, 4);
         gd.addNumericField("Overlay threshold     :", stardistOverlayThreshPML, 4);
         if (models.length >= 2) {
-            gd.addChoice("Nucleus model :",models, models[1]);
-            gd.addChoice("PMLs model    :",models, models[0]);
+            gd.addChoice("Nucleus model :",models, models[0]);
+            gd.addChoice("PMLs model    :",models, models[1]);
         }
         else {
             gd.addFileField("Nucleus model :", stardistModelNucleus);
